@@ -1,0 +1,11 @@
+$.account_id: Integer
+$.body: String
+$.created_at: String
+$.environment_id: Integer
+$.id: Integer
+$.is_deleted: Boolean
+$.name: String
+$.transformers.heading: String
+$.transformers.link: String
+$.transformers.paragraph: String
+$.updated_at: String

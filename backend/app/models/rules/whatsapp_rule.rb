@@ -1,0 +1,2 @@
+class WhatsappRule < Rule
+end

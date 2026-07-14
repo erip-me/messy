@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo "Running backend tests before push..."
+
+cd "$(git rev-parse --show-toplevel)/backend"
+
+bundle exec rails test
+
+echo "All tests passed. Pushing..."

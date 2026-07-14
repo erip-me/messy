@@ -1,0 +1,45 @@
+<p style="margin: 0 0 8px; font-size: 15px; color: #334155; line-height: 1.6;">
+  Hi<%= @user.name.present? ? " #{@user.name}" : "" %>,
+</p>
+
+<p style="margin: 0 0 24px; font-size: 15px; color: #64748b; line-height: 1.6;">
+  List cleanup for segment <strong><%= @segment.name %></strong> has finished. Here's a summary:
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 24px; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+  <tr style="background-color: #f8fafc;">
+    <td style="padding: 10px 16px; font-size: 13px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Total checked</td>
+    <td style="padding: 10px 16px; font-size: 13px; color: #334155; font-weight: 600; text-align: right; border-bottom: 1px solid #e2e8f0;"><%= @stats[:total] %></td>
+  </tr>
+  <tr>
+    <td style="padding: 10px 16px; font-size: 13px; color: #64748b; border-bottom: 1px solid #e2e8f0;">High confidence (70-100)</td>
+    <td style="padding: 10px 16px; font-size: 13px; color: #2E7D32; font-weight: 600; text-align: right; border-bottom: 1px solid #e2e8f0;"><%= @stats[:high] %></td>
+  </tr>
+  <tr style="background-color: #f8fafc;">
+    <td style="padding: 10px 16px; font-size: 13px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Medium confidence (40-69)</td>
+    <td style="padding: 10px 16px; font-size: 13px; color: #F57C00; font-weight: 600; text-align: right; border-bottom: 1px solid #e2e8f0;"><%= @stats[:medium] %></td>
+  </tr>
+  <tr>
+    <td style="padding: 10px 16px; font-size: 13px; color: #64748b; border-bottom: 1px solid #e2e8f0;">Low confidence (1-39)</td>
+    <td style="padding: 10px 16px; font-size: 13px; color: #F57C00; font-weight: 600; text-align: right; border-bottom: 1px solid #e2e8f0;"><%= @stats[:low] %></td>
+  </tr>
+  <tr style="background-color: #f8fafc;">
+    <td style="padding: 10px 16px; font-size: 13px; color: #64748b;">Invalid (auto-unsubscribed)</td>
+    <td style="padding: 10px 16px; font-size: 13px; color: #dc2626; font-weight: 600; text-align: right;"><%= @stats[:unsubscribed] %></td>
+  </tr>
+</table>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 0 28px;">
+  <tr>
+    <td style="border-radius: 9999px; background: #3b82f6;">
+      <a href="<%= @segment_link %>" style="display: inline-block; padding: 12px 28px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 9999px;">
+        View Segment
+      </a>
+    </td>
+  </tr>
+</table>
+
+<p style="margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5;">
+  Customers with invalid email addresses have been automatically unsubscribed from the email channel.
+  You can review individual scores on each customer's detail page.
+</p>

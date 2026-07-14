@@ -1,0 +1,14 @@
+$.has_more: Boolean
+$.messages[].attachments[]: (empty)
+$.messages[].content: String
+$.messages[].conversation_id: Integer
+$.messages[].created_at: String
+$.messages[].id: Integer
+$.messages[].message_type: String
+$.messages[].metadata: {}
+$.messages[].private: Boolean
+$.messages[].read_by_operator: Boolean
+$.messages[].read_by_visitor: Boolean
+$.messages[].sender_id: Integer
+$.messages[].sender_name: String
+$.messages[].sender_type: String

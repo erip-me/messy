@@ -1,0 +1,20 @@
+admin:
+  account: acme
+  name: Admin User
+  email: admin@acme.com
+  is_super_admin: true
+  role: admin
+
+regular:
+  account: acme
+  name: Regular User
+  email: regular@acme.com
+  is_super_admin: false
+  role: member
+
+other_user:
+  account: other_co
+  name: Other User
+  email: user@other.com
+  is_super_admin: false
+  role: admin

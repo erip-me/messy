@@ -1,0 +1,61 @@
+allow_internal:
+  account: acme
+  environment: production
+  type: EmailRule
+  name: Allow Internal Emails
+  condition: "domain == 'acme.com'"
+  tags:
+    - internal
+  scope: 1
+  outcome: 1
+  is_deleted: false
+  active: true
+
+block_external:
+  account: acme
+  environment: production
+  type: EmailRule
+  name: Block External Emails
+  condition: "domain != 'acme.com'"
+  tags:
+    - external
+  scope: 2
+  outcome: 0
+  is_deleted: false
+  active: true
+
+staging_allow:
+  account: acme
+  environment: staging
+  type: EmailRule
+  name: Staging Allow Mailinator
+  condition: "mailinator.com"
+  tags: []
+  scope: 0
+  outcome: 1
+  is_deleted: false
+  active: true
+
+staging_deny:
+  account: acme
+  environment: staging
+  type: EmailRule
+  name: Staging Deny Tuli
+  condition: "tuli.com"
+  tags: []
+  scope: 0
+  outcome: 0
+  is_deleted: false
+  active: true
+
+inactive_deny_all:
+  account: acme
+  environment: production
+  type: EmailRule
+  name: Inactive Deny Everything
+  condition: "@"
+  tags: []
+  scope: 0
+  outcome: 0
+  is_deleted: false
+  active: false

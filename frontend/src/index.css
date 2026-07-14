@@ -1,0 +1,281 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Soft neutral canvas behind white panels */
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Vibrant blue brand (buttons, links, active highlights) */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* Light gray for muted surfaces / detail panels */
+    --muted: 210 20% 96.5%;
+    --muted-foreground: 215 16% 47%;
+
+    /* Soft blue tint for active pills / selected rows / menu hovers */
+    --accent: 214 100% 96%;
+    --accent-foreground: 217 91% 45%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 217 91% 60%;
+
+    /* Friendlier, rounder corners */
+    --radius: 0.75rem;
+
+    /* Light sidebar — near-white chrome with slate text */
+    --sidebar-bg: 210 20% 99%;
+    --sidebar-text: 215 25% 27%;
+    --detail-panel: 210 20% 97%;
+    --status-green: 142 71% 85%;
+    --status-green-text: 142 71% 45%;
+    --status-amber: 43 96% 85%;
+    --status-amber-text: 43 96% 35%;
+    --status-coral: 0 72% 89%;
+    --status-coral-text: 0 72% 45%;
+    --status-orange: 25 95% 85%;
+    --status-orange-text: 25 95% 38%;
+    --status-blue: 210 80% 88%;
+    --status-blue-text: 210 80% 38%;
+    --avatar-teal: 217 91% 60%;
+    --avatar-olive: 82 39% 30%;
+    --avatar-gold: 38 92% 50%;
+    --avatar-blue: 217 91% 60%;
+
+    /* Chart palette — cool hues harmonized with the blue brand (names are slots) */
+    --chart-teal: 217 91% 60%;       /* blue (lead) */
+    --chart-sage: 199 89% 48%;       /* sky */
+    --chart-terracotta: 239 84% 67%; /* indigo */
+    --chart-sand: 258 85% 67%;       /* violet */
+    --chart-slate: 215 25% 55%;      /* slate-blue */
+    --chart-plum: 173 80% 40%;       /* teal */
+  }
+
+  .dark {
+    /* Deep slate canvas behind slightly-lighter panels */
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
+
+    /* Cards sit a step above the canvas so they stay visible */
+    --card: 222 40% 10%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 222 44% 11%;
+    --popover-foreground: 210 40% 96%;
+
+    /* Vibrant blue brand stays bright; text on it goes near-white */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 33% 16%;
+    --secondary-foreground: 210 40% 96%;
+
+    /* Muted surfaces / detail panels */
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    /* Blue-tinted active pills / selected rows / menu hovers */
+    --accent: 217 44% 20%;
+    --accent-foreground: 214 100% 84%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 20%;
+    --input: 217 33% 22%;
+    --ring: 217 91% 60%;
+
+    /* Sidebar chrome — one shade off the canvas */
+    --sidebar-bg: 222 47% 9%;
+    --sidebar-text: 210 40% 90%;
+    --detail-panel: 217 33% 12%;
+
+    /* Status pills — dim the background, brighten the text for dark bg */
+    --status-green: 142 45% 22%;
+    --status-green-text: 142 60% 65%;
+    --status-amber: 43 60% 22%;
+    --status-amber-text: 43 90% 65%;
+    --status-coral: 0 45% 26%;
+    --status-coral-text: 0 80% 72%;
+    --status-orange: 25 55% 24%;
+    --status-orange-text: 25 90% 65%;
+    --status-blue: 210 55% 26%;
+    --status-blue-text: 210 90% 72%;
+
+    /* Chart palette — lift lightness so hues read on the dark canvas */
+    --chart-teal: 217 91% 65%;
+    --chart-sage: 199 89% 58%;
+    --chart-terracotta: 239 84% 72%;
+    --chart-sand: 258 85% 74%;
+    --chart-slate: 215 25% 65%;
+    --chart-plum: 173 70% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  /* Serif retired — kept as a no-op alias so existing usages stay valid (clean Inter). */
+  .serif-heading {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .sidebar-bg {
+    background-color: hsl(var(--sidebar-bg));
+    color: hsl(var(--sidebar-text));
+  }
+  
+  .detail-panel {
+    background-color: hsl(var(--detail-panel));
+  }
+  
+  .status-badge {
+    @apply px-2 py-1 text-xs font-medium rounded-full;
+  }
+  
+  .status-active {
+    background-color: hsl(var(--status-green));
+    @apply text-gray-800;
+  }
+
+  .status-warning {
+    background-color: hsl(var(--status-amber));
+    @apply text-gray-800;
+  }
+
+  .status-urgent {
+    background-color: hsl(var(--status-coral));
+    @apply text-gray-800;
+  }
+
+  .status-sent {
+    background-color: hsl(var(--status-green));
+    @apply text-gray-800;
+  }
+
+  .status-expired {
+    background-color: hsl(var(--status-orange));
+    @apply text-gray-800;
+  }
+
+  .status-muted {
+    @apply bg-gray-100 text-gray-800;
+  }
+
+  /* On dark, the pill backgrounds are dim — recolor the text to the bright variants */
+  .dark .status-active,
+  .dark .status-sent {
+    color: hsl(var(--status-green-text));
+  }
+  .dark .status-warning {
+    color: hsl(var(--status-amber-text));
+  }
+  .dark .status-urgent {
+    color: hsl(var(--status-coral-text));
+  }
+  .dark .status-expired {
+    color: hsl(var(--status-orange-text));
+  }
+  .dark .status-muted {
+    @apply bg-gray-800 text-gray-200;
+  }
+  
+  .avatar-teal {
+    background-color: hsl(var(--avatar-teal));
+  }
+  
+  .avatar-olive {
+    background-color: hsl(var(--avatar-olive));
+  }
+  
+  .avatar-gold {
+    background-color: hsl(var(--avatar-gold));
+  }
+  
+  .avatar-blue {
+    background-color: hsl(var(--avatar-blue));
+  }
+  
+  .section-label {
+    @apply text-xs font-medium text-gray-400 uppercase tracking-wider;
+  }
+  
+  .card-shadow {
+    @apply shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+  
+
+  .page-heading {
+    @apply text-3xl font-bold tracking-tight text-foreground;
+  }
+
+  .page-subtitle {
+    @apply text-muted-foreground mt-1;
+  }
+}
+
+/*
+ * Dark-mode retrofit for hardcoded light utilities.
+ *
+ * Much of the app predates dark mode and paints surfaces/text with literal
+ * gray/white utilities (bg-white, text-gray-900, border-gray-200, …) instead of
+ * the semantic tokens. Rather than rewrite every component, remap those
+ * utilities to the corresponding token *only* under `.dark`. Light mode is
+ * untouched (these selectors never match without the `.dark` ancestor), and the
+ * higher-specificity `.dark .foo` beats Tailwind's own `.foo` in the same layer.
+ *
+ * Intentionally-dark utilities (bg-gray-800/900, text-white) are left alone.
+ */
+@layer utilities {
+  /* Surfaces */
+  .dark .bg-white { background-color: hsl(var(--card)); }
+  .dark .bg-gray-50 { background-color: hsl(var(--muted)); }
+  .dark .bg-gray-100 { background-color: hsl(var(--muted)); }
+  .dark .bg-gray-200 { background-color: hsl(var(--secondary)); }
+  .dark .hover\:bg-white:hover { background-color: hsl(var(--card)); }
+  .dark .hover\:bg-gray-50:hover { background-color: hsl(var(--muted)); }
+  .dark .hover\:bg-gray-100:hover { background-color: hsl(var(--muted)); }
+
+  /* Text */
+  .dark .text-gray-900 { color: hsl(var(--foreground)); }
+  .dark .text-gray-800 { color: hsl(var(--foreground)); }
+  .dark .text-gray-700 { color: hsl(210 40% 85%); }
+  .dark .text-gray-600 { color: hsl(var(--muted-foreground)); }
+  .dark .text-gray-500 { color: hsl(var(--muted-foreground)); }
+  .dark .text-gray-400 { color: hsl(215 18% 58%); }
+  .dark .hover\:text-gray-900:hover { color: hsl(var(--foreground)); }
+  .dark .hover\:text-gray-700:hover { color: hsl(210 40% 85%); }
+  .dark .hover\:text-gray-600:hover { color: hsl(var(--muted-foreground)); }
+
+  /* Borders & dividers */
+  .dark .border-gray-100 { border-color: hsl(var(--border)); }
+  .dark .border-gray-200 { border-color: hsl(var(--border)); }
+  .dark .border-gray-300 { border-color: hsl(var(--border)); }
+  .dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: hsl(var(--border)); }
+  .dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: hsl(var(--border)); }
+}

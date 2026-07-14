@@ -1,0 +1,17 @@
+$.account_id: Integer
+$.allow_email: Boolean
+$.allow_mobile_push: Boolean
+$.allow_sms: Boolean
+$.allow_web_push: Boolean
+$.allow_whatsapp: Boolean
+$.api_key: String
+$.campaign_email_integration_id: Null
+$.created_at: String
+$.id: Integer
+$.is_deleted: Boolean
+$.name: String
+$.notification_email_integration_id: Null
+$.tag: String
+$.updated_at: String
+$.whatsapp_phone_id: Null
+$.whatsapp_token: Null

@@ -1,0 +1,12 @@
+admin_open_chat:
+  conversation: open_chat
+  reader_type: "User"
+  reader_id: <%= ActiveRecord::FixtureSet.identify(:admin) %>
+  last_read_message: visitor_message
+  last_read_at: <%= 10.minutes.ago %>
+
+visitor_open_chat:
+  conversation: open_chat
+  reader_type: "Visitor"
+  last_read_message: visitor_message
+  last_read_at: <%= 10.minutes.ago %>

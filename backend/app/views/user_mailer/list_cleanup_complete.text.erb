@@ -1,0 +1,15 @@
+Hi<%= @user.name.present? ? " #{@user.name}" : "" %>,
+
+List cleanup for segment "<%= @segment.name %>" has finished.
+
+Summary:
+- Total checked: <%= @stats[:total] %>
+- High confidence (70-100): <%= @stats[:high] %>
+- Medium confidence (40-69): <%= @stats[:medium] %>
+- Low confidence (1-39): <%= @stats[:low] %>
+- Invalid (auto-unsubscribed): <%= @stats[:unsubscribed] %>
+
+View segment: <%= @segment_link %>
+
+Customers with invalid email addresses have been automatically unsubscribed from the email channel.
+You can review individual scores on each customer's detail page.

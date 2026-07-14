@@ -1,0 +1,9 @@
+billing_ticket:
+  account: acme
+  mailbox: support
+  conversation: email_ticket
+  ticket_number: SUP-1001
+  from_email: sarah@customer.com
+  from_name: Sarah Johnson
+  subject: Cannot access billing portal
+  cc_list: <%= ["accounting@customer.com"].to_json %>

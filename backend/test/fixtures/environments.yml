@@ -1,0 +1,35 @@
+production:
+  account: acme
+  name: Production
+  api_key: "test_api_key_production_abc123=="
+  allow_email: true
+  allow_sms: true
+  allow_whatsapp: false
+  allow_mobile_push: true
+  allow_web_push: true
+  is_deleted: false
+  tag: production
+
+staging:
+  account: acme
+  name: Staging
+  api_key: "test_api_key_staging_def456=="
+  allow_email: true
+  allow_sms: false
+  allow_whatsapp: false
+  allow_mobile_push: false
+  allow_web_push: false
+  is_deleted: false
+  tag: staging
+
+other_env:
+  account: other_co
+  name: Production
+  api_key: "test_api_key_other_ghi789=="
+  allow_email: true
+  allow_sms: false
+  allow_whatsapp: false
+  allow_mobile_push: false
+  allow_web_push: false
+  is_deleted: false
+  tag: production

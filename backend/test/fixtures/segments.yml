@@ -1,0 +1,37 @@
+active_buyers:
+  account: acme
+  name: Active Buyers
+  description: Customers who are buyers
+  conditions:
+    id: root
+    operator: and
+    conditions:
+      - id: cond1
+        attribute: "custom.role"
+        operator: equals
+        value: buyer
+  customer_count: 1
+
+all_customers:
+  account: acme
+  name: All Customers
+  description: Everyone
+  conditions:
+    id: root
+    operator: and
+    conditions: []
+  customer_count: 2
+
+other_segment:
+  account: other_co
+  name: Other Co Segment
+  description: Segment belonging to other_co
+  conditions:
+    id: root
+    operator: and
+    conditions:
+      - id: cond1
+        attribute: email
+        operator: contains
+        value: "@example.com"
+  customer_count: 1

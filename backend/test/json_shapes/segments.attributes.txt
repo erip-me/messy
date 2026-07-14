@@ -1,0 +1,3 @@
+$.attributes[].key: String
+$.attributes[].label: String
+$.attributes[].type: String

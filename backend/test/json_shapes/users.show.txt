@@ -1,0 +1,12 @@
+$.account_id: Integer
+$.created_at: String
+$.email: String
+$.id: Integer
+$.is_super_admin: Boolean
+$.last_login_at: Null
+$.name: String
+$.operator_profile.avatar_url: Null
+$.operator_profile.online: Boolean
+$.operator_profile.public_name: String
+$.role: String
+$.updated_at: String

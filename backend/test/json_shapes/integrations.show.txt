@@ -1,0 +1,13 @@
+$.account_id: Integer
+$.active: Boolean
+$.config.access_key_id: String
+$.config.region: String
+$.config.secret_access_key: String
+$.created_at: String
+$.environment_id: Integer
+$.environment_name: String
+$.id: Integer
+$.kind: String
+$.type: String
+$.updated_at: String
+$.vendor: String

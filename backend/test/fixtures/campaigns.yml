@@ -1,0 +1,41 @@
+email_draft:
+  account: acme
+  environment: production
+  name: March Newsletter
+  subject: Hello from Acme
+  from_email: hello@acme.com
+  content: "<h1>Hello {{first_name}}</h1><p>Welcome!</p><a href='https://acme.com'>Visit</a><p><a href='{{unsubscribe_url}}'>Unsubscribe</a></p>"
+  channel: email
+  status: draft
+  segment: active_buyers
+
+sms_draft:
+  account: acme
+  environment: production
+  name: SMS Promo
+  channel: sms
+  content: "Hi {{first_name}}, check out our deals!"
+  status: draft
+  segment: all_customers
+
+sending_campaign:
+  account: acme
+  environment: production
+  name: In Progress Campaign
+  subject: Active Send
+  from_email: hello@acme.com
+  content: "<p>Content</p><a href='{{unsubscribe_url}}'>Unsubscribe</a>"
+  channel: email
+  status: sending
+  segment: all_customers
+
+other_campaign:
+  account: other_co
+  environment: other_env
+  name: Other Co Campaign
+  subject: Other Subject
+  from_email: hello@other.com
+  content: "<p>Other content</p><a href='{{unsubscribe_url}}'>Unsubscribe</a>"
+  channel: email
+  status: draft
+  segment: other_segment

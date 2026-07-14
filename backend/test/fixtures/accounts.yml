@@ -1,0 +1,15 @@
+acme:
+  name: Acme Corp
+  plan: trial
+  trial_ends_at: <%= 30.days.from_now %>
+  payment_status: active
+  chat_enabled: true
+  message_retention_days: 180
+
+other_co:
+  name: Other Company
+  plan: trial
+  trial_ends_at: <%= 30.days.from_now %>
+  payment_status: active
+  chat_enabled: false
+  message_retention_days: 180

@@ -1,0 +1,19 @@
+email_delivery:
+  message: email_one
+  integration: ses
+  account: acme
+  recipient: recipient@example.com
+  started_at: <%= 1.day.ago %>
+  completed_at: <%= 1.day.ago + 2.seconds %>
+  provider_message_id: "0100018f-abcd-1234-5678-abc123def456"
+  status: accepted
+
+whatsapp_delivery:
+  message: whatsapp_sent
+  integration: whatsapp
+  account: acme
+  recipient: "+31647508676"
+  started_at: <%= 1.hour.ago %>
+  completed_at: <%= 1.hour.ago + 2.seconds %>
+  provider_message_id: "wamid.HBgLMzE2NDc1MDg2NzYVAgARGBI"
+  status: accepted

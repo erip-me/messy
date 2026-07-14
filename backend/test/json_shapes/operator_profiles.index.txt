@@ -1,0 +1,9 @@
+$.operator_profiles[].auto_assign: Boolean
+$.operator_profiles[].availability: String
+$.operator_profiles[].avatar_url: Null
+$.operator_profiles[].id: Integer
+$.operator_profiles[].max_concurrent_chats: Integer
+$.operator_profiles[].online: Boolean
+$.operator_profiles[].public_name: String
+$.operator_profiles[].sort_order: Integer
+$.operator_profiles[].user_id: Integer

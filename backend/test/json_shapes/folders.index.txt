@@ -1,0 +1,11 @@
+$[].account_id: Integer
+$[].created_at: String
+$[].environment_id: Integer
+$[].id: Integer
+$[].is_deleted: Boolean
+$[].name: String
+$[].parent_folder_id: Integer
+$[].parent_folder_id: Null
+$[].templates[]: (empty)
+$[].templates_count: Integer
+$[].updated_at: String

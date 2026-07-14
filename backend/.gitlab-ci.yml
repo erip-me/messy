@@ -1,0 +1,25 @@
+image: docker:latest
+
+variables:
+  IMAGE: "$CI_REGISTRY/$CI_PROJECT_PATH:backend-$CI_COMMIT_SHORT_SHA"
+
+stages:
+  - build
+
+before_script:
+  - cd backend
+
+build:
+  image: docker:27
+  stage: build
+  before_script:
+    - cd backend
+    - docker buildx create --use --name amd64-builder --driver docker-container || docker buildx use amd64-builder
+  script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY --username $CI_REGISTRY_USER --password-stdin
+    - export RELEASE_IMAGE="$CI_REGISTRY/$CI_PROJECT_PATH:backend-test"
+    - docker buildx build --platform linux/amd64 --provenance=false -t $IMAGE -t $RELEASE_IMAGE --push .
+  except:
+    - tags
+  tags:
+    - shell

@@ -1,0 +1,72 @@
+source 'https://rubygems.org'
+
+gem 'rails', '~> 8.0.0'
+gem 'pg'
+gem 'puma'
+gem 'solid_queue'
+gem 'solid_cable'
+gem 'dotenv'
+
+# Email
+gem 'mail'
+gem 'resolv-replace'
+
+# Template processing
+gem 'liquid'
+gem 'html2text'
+gem 'redcarpet'
+
+# Help desk email ingestion
+gem 'google-apis-gmail_v1'
+gem 'googleauth'
+gem 'loofah'
+
+# integrations
+gem 'aws-sdk-rails', '~> 4.0'
+gem 'fcm'
+gem 'phonelib'
+gem 'aws-sdk-ses'
+gem 'twilio-ruby'
+gem 'multipart-post'
+gem 'connection_pool', '~> 2.4'
+gem 'apnotic'
+gem 'web-push'
+
+# jwt token
+gem 'jwt'
+
+# billing
+gem 'stripe', '~> 13.0'
+
+# paginate
+gem 'kaminari'
+
+gem 'csv'
+gem 'bootsnap', require: false
+gem 'jsbundling-rails'
+
+# Use Active Storage variants (e.g. converting non-JPEG creatives to JPEG for the
+# Instagram image API). Needs an image processor — ImageMagick, installed in the
+# Docker image — via the mini_magick backend (config.active_storage.variant_processor).
+gem 'image_processing', '~> 1.2'
+gem 'mini_magick', '~> 5.0'
+
+# Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
+gem 'rack-cors'
+
+# Rate limiting / brute-force protection for auth and webhook endpoints
+gem 'rack-attack'
+
+group :development, :test do
+  gem 'debug', platforms: %i[ mri mingw x64_mingw ]
+  gem 'mocha'
+end
+
+group :development do
+end
+
+group :production do
+  gem 'foreman'
+end
+
+gem "alba", "~> 3.10"

@@ -1,0 +1,8 @@
+dist
+node_modules
+.eslintrc.cjs
+vite.config.ts
+*.min.js
+*.min.css
+package-lock.json
+yarn.lock

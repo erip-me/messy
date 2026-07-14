@@ -1,0 +1,175 @@
+#!/usr/bin/env bash
+#
+# security-scan — run OpenGrep (SAST) + Trivy (deps/secrets/IaC) across the messy monorepo.
+#
+# Usage:
+#   bin/security-scan              # scan everything
+#   bin/security-scan backend      # one component (backend|frontend|deploy)
+#   bin/security-scan --sast       # OpenGrep only
+#   bin/security-scan --deps       # Trivy only
+#   bin/security-scan --ci         # exit non-zero if HIGH/CRITICAL deps, secrets, or ERROR SAST found
+#
+# Tools (install once):
+#   brew install trivy
+#   curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
+#
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RULES_DIR="${OPENGREP_RULES_DIR:-$HOME/.cache/messy-security/opengrep-rules}"
+SEVERITY="HIGH,CRITICAL"
+OUT_DIR="${TMPDIR:-/tmp}/messy-security"
+mkdir -p "$OUT_DIR"
+
+# Make user-local installs (opengrep symlink) reachable even under a bare PATH.
+export PATH="$HOME/.local/bin:$PATH"
+
+# All scannable components.
+ALL_COMPONENTS=(backend frontend deploy)
+
+RUN_SAST=true
+RUN_DEPS=true
+CI=false
+COMPONENTS=()
+
+is_component() { for c in "${ALL_COMPONENTS[@]}"; do [ "$c" = "$1" ] && return 0; done; return 1; }
+
+for arg in "$@"; do
+  case "$arg" in
+    --sast) RUN_DEPS=false ;;
+    --deps) RUN_SAST=false ;;
+    --ci)   CI=true ;;
+    -h|--help) sed -n '3,14p' "$0"; exit 0 ;;
+    *) if is_component "$arg"; then COMPONENTS+=("$arg"); else echo "Unknown argument: $arg" >&2; exit 2; fi ;;
+  esac
+done
+[ ${#COMPONENTS[@]} -eq 0 ] && COMPONENTS=("${ALL_COMPONENTS[@]}")
+
+c_red=$'\033[31m'; c_grn=$'\033[32m'; c_yel=$'\033[33m'; c_bld=$'\033[1m'; c_rst=$'\033[0m'
+log()  { printf '%s\n' "${c_bld}==> $*${c_rst}"; }
+warn() { printf '%s\n' "${c_yel}WARN: $*${c_rst}" >&2; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+FAIL=0
+
+# --- ensure OpenGrep community rules are present (cached) ---
+ensure_rules() {
+  if [ ! -d "$RULES_DIR/.git" ]; then
+    log "Fetching OpenGrep rules into $RULES_DIR"
+    mkdir -p "$(dirname "$RULES_DIR")"
+    git clone --depth 1 https://github.com/opengrep/opengrep-rules.git "$RULES_DIR" >/dev/null 2>&1 \
+      || { warn "could not clone opengrep-rules — SAST will be skipped"; return 1; }
+  fi
+  return 0
+}
+
+# OpenGrep rule packs per component. deploy/ (Terraform) has no SAST — Trivy covers IaC.
+sast_configs() {
+  case "$1" in
+    backend) echo "ruby javascript typescript generic/secrets" ;;
+    frontend) echo "javascript typescript generic/secrets" ;;
+    deploy) echo "" ;;
+  esac
+}
+
+# Path within each component to scan with OpenGrep.
+sast_path() {
+  case "$1" in
+    backend) echo "app" ;;
+    *)       echo "src" ;;
+  esac
+}
+
+run_sast() {
+  local comp="$1" packs path cfg_args=() summary skipped
+  packs="$(sast_configs "$comp")"
+  path="$ROOT/$comp/$(sast_path "$comp")"
+  [ -z "$packs" ] && { warn "[$comp] no OpenGrep rule packs (IaC — use Trivy) — skipping SAST"; return; }
+  [ -d "$path" ] || { warn "[$comp] path $path missing — skipping SAST"; return; }
+
+  for p in $packs; do
+    [ -d "$RULES_DIR/$p" ] && cfg_args+=(--config "$RULES_DIR/$p")
+  done
+
+  local out="$OUT_DIR/opengrep-$comp.json"
+  log "[$comp] OpenGrep SAST on $comp/$(sast_path "$comp")"
+  opengrep scan "${cfg_args[@]}" --json --output "$out" "$path" 2>/dev/null || true
+
+  # Community rules load from absolute paths, so effective rule IDs are machine-specific
+  # and can't be excluded via --exclude-rule. Filter noise by id suffix here instead.
+  read -r summary skipped < <(python3 - "$out" <<'PY'
+import json, sys
+from collections import Counter
+NOISE = ("jsx-not-internationalized",)
+try:
+    res = json.load(open(sys.argv[1])).get("results", [])
+except Exception:
+    print("0|0|0 0"); sys.exit()
+kept = [r for r in res if not r["check_id"].endswith(NOISE)]
+n = len(res) - len(kept)
+sev = Counter(r["extra"].get("severity", "?") for r in kept)
+print(f'{sev.get("ERROR",0)}|{sev.get("WARNING",0)}|{sev.get("INFO",0)} {n}')
+PY
+)
+  IFS='|' read -r e w i <<<"$summary"
+  [ "${skipped:-0}" -gt 0 ] && printf '    %s(%s i18n-lint findings filtered as noise)%s\n' "$c_yel" "$skipped" "$c_rst"
+  if [ "${e:-0}" -gt 0 ]; then
+    printf '    %sERROR: %s%s  WARNING: %s  INFO: %s  (%s)\n' "$c_red" "$e" "$c_rst" "$w" "$i" "$out"
+    if $CI; then FAIL=1; fi
+  else
+    printf '    %sERROR: 0%s  WARNING: %s  INFO: %s  (%s)\n' "$c_grn" "$c_rst" "$w" "$i" "$out"
+  fi
+}
+
+run_deps() {
+  local comp="$1" dir="$ROOT/$comp" out="$OUT_DIR/trivy-$comp.json"
+  [ -d "$dir" ] || { warn "[$comp] $dir missing — skipping deps scan"; return; }
+  log "[$comp] Trivy deps + secrets + misconfig ($SEVERITY)"
+  # Skip tooling artifacts that carry their own stale lockfiles (false positives).
+  trivy fs --scanners vuln,secret,misconfig --severity "$SEVERITY" \
+    --skip-dirs '**/node_modules' --skip-dirs '**/.ruby-lsp' --skip-dirs '**/vendor/bundle' \
+    --skip-dirs '**/.terraform' --skip-dirs '**/dist' --skip-dirs '**/build' \
+    --quiet --format json --output "$out" "$dir" 2>/dev/null || true
+
+  local summary
+  summary="$(python3 - "$out" <<'PY'
+import json, sys
+try:
+    tv = json.load(open(sys.argv[1]))
+except Exception:
+    print("0|0|0|0"); sys.exit()
+v=c=s=m=0
+for r in tv.get("Results", []) or []:
+    for x in r.get("Vulnerabilities", []) or []:
+        c += x["Severity"] == "CRITICAL"; v += x["Severity"] != "CRITICAL"
+    s += len(r.get("Secrets", []) or [])
+    m += len(r.get("Misconfigurations", []) or [])
+print(f"{c}|{v}|{s}|{m}")
+PY
+)"
+  IFS='|' read -r crit high sec mis <<<"$summary"
+  local color="$c_grn"
+  if [ "${crit:-0}" -gt 0 ] || [ "${high:-0}" -gt 0 ] || [ "${sec:-0}" -gt 0 ]; then
+    color="$c_red"; if $CI; then FAIL=1; fi
+  fi
+  printf '    %sCRITICAL: %s  HIGH: %s  secrets: %s%s  misconfig: %s  (%s)\n' \
+    "$color" "${crit:-0}" "${high:-0}" "${sec:-0}" "$c_rst" "${mis:-0}" "$out"
+}
+
+# --- preflight ---
+$RUN_SAST && { have opengrep || { warn "opengrep not installed — skipping SAST"; RUN_SAST=false; }; }
+$RUN_DEPS && { have trivy    || { warn "trivy not installed — skipping deps scan"; RUN_DEPS=false; }; }
+$RUN_SAST && { ensure_rules || RUN_SAST=false; }
+
+log "Scanning: ${COMPONENTS[*]}   (SAST=$RUN_SAST deps=$RUN_DEPS ci=$CI)"
+for comp in "${COMPONENTS[@]}"; do
+  $RUN_DEPS && run_deps "$comp"
+  $RUN_SAST && run_sast "$comp"
+done
+
+echo
+if $CI && [ "$FAIL" -ne 0 ]; then
+  echo "${c_red}${c_bld}Security scan found blocking issues (HIGH/CRITICAL deps, secrets, or ERROR SAST).${c_rst}"
+  exit 1
+fi
+echo "${c_grn}${c_bld}Security scan complete.${c_rst} JSON reports in $OUT_DIR"

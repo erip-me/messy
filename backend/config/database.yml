@@ -1,0 +1,58 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 10 } %>
+  host: <%= ENV['DATABASE_HOST'] || 'localhost' %>
+  port: <%= ENV['DATABASE_PORT'] || 5432 %>
+
+development:
+  primary:
+    <<: *default
+    database: <%= ENV['DATABASE_NAME'] || 'messy' %>
+    username: <%= ENV['DATABASE_USERNAME'] || 'postgres' %>
+    password: <%= ENV['DATABASE_PASSWORD'] || '' %>
+  queue:
+    <<: *default
+    database: <%= ENV['DATABASE_NAME'] || 'messy' %>
+    username: <%= ENV['DATABASE_USERNAME'] || 'postgres' %>
+    password: <%= ENV['DATABASE_PASSWORD'] || '' %>
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *default
+    database: <%= ENV['DATABASE_NAME'] || 'messy' %>
+    username: <%= ENV['DATABASE_USERNAME'] || 'postgres' %>
+    password: <%= ENV['DATABASE_PASSWORD'] || '' %>
+    migrations_paths: db/cable_migrate
+
+test:
+  primary:
+    <<: *default
+    database: messy_test
+    username: postgres
+    password:
+  queue:
+    <<: *default
+    database: messy_test
+    username: postgres
+    password:
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *default
+    database: messy_test
+    username: postgres
+    password:
+    migrations_paths: db/cable_migrate
+
+production:
+  primary:
+    <<: *default
+    url: <%= ENV['DATABASE_URL'] %>
+  queue:
+    <<: *default
+    url: <%= ENV['DATABASE_URL'] %>
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 10 } %>
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *default
+    url: <%= ENV['DATABASE_URL'] %>
+    migrations_paths: db/cable_migrate

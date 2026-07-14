@@ -1,0 +1,62 @@
+# examples:
+#   periodic_cleanup:
+#     class: CleanSoftDeletedRecordsJob
+#     queue: background
+#     args: [ 1000, { batch_size: 500 } ]
+#     schedule: every hour
+#   periodic_cleanup_with_command:
+#     command: "SoftDeletedRecord.due.delete_all"
+#     priority: 2
+#     schedule: at 5am every day
+
+production:
+  clear_solid_queue_finished_jobs:
+    command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
+    schedule: every hour at minute 12
+
+  chat_message_digest:
+    class: ChatMessageDigestJob
+    schedule: every 5 minutes
+
+  auto_close_conversations:
+    class: AutoCloseConversationsJob
+    schedule: every hour
+
+  unsnooze_conversations:
+    class: UnsnoozeConversationsJob
+    schedule: every minute
+
+  cleanup_anonymous_visitors:
+    class: CleanupAnonymousVisitorsJob
+    schedule: at 3am every day
+
+  poll_all_mailboxes:
+    class: PollAllMailboxesJob
+    schedule: every 2 minutes
+    queue: email_ingestion
+
+  renew_mailbox_push:
+    class: RenewMailboxPushJob
+    schedule: every 6 hours
+    queue: email_ingestion
+
+  auto_close_tickets:
+    class: AutoCloseTicketsJob
+    schedule: at 2am every day
+    queue: email_ingestion
+
+  prune_messages:
+    class: PruneMessagesJob
+    schedule: at 4am every day
+
+  drip_sweep:
+    class: DripSweepJob
+    schedule: every 5 minutes
+
+  publish_scheduled_socials:
+    class: PublishScheduledSocialPostsJob
+    schedule: every 15 minutes
+
+  analytics_daily_rollup:
+    class: AnalyticsDailyRollupJob
+    schedule: at 1am every day

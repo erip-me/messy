@@ -1,0 +1,21 @@
+pakistan:
+  account: acme
+  environment: production
+  name: Pakistan
+  integration: meta_social
+  page_id: "100000000000001"
+  ig_business_account_id: "170000000000001"
+  ad_account_id: "act_111111"
+  timezone: Asia/Karachi
+  post_hour: 9
+  countries: <%= ["PK"].to_json %>
+  active: true
+
+vietnam:
+  account: acme
+  environment: production
+  name: Vietnam
+  timezone: Asia/Ho_Chi_Minh
+  post_hour: 9
+  countries: <%= ["VN"].to_json %>
+  active: true

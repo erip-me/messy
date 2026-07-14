@@ -1,0 +1,8 @@
+$.avg_first_response_seconds: Integer
+$.open: Integer
+$.pending: Integer
+$.resolved_today: Integer
+$.snoozed: Integer
+$.unread: Integer
+$.unread_mine: Integer
+$.unread_unassigned: Integer

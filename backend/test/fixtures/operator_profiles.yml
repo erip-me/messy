@@ -1,0 +1,18 @@
+admin_profile:
+  user: admin
+  account: acme
+  public_name: "Alex Support"
+  bio: "Here to help!"
+  availability: 0
+  auto_assign: true
+  max_concurrent_chats: 10
+  last_heartbeat_at: <%= 30.seconds.ago %>
+
+regular_profile:
+  user: regular
+  account: acme
+  public_name: "Sam Helper"
+  availability: 1
+  auto_assign: true
+  max_concurrent_chats: 5
+  last_heartbeat_at: <%= 2.minutes.ago %>

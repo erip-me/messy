@@ -1,0 +1,101 @@
+ses:
+  account: acme
+  type: SesIntegration
+  vendor: aws
+  kind: 0
+  config:
+    region: us-east-1
+    access_key_id: AKIAIOSFODNN7EXAMPLE
+    secret_access_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+  environment: production
+  active: true
+
+twilio:
+  account: acme
+  type: TwilioIntegration
+  vendor: twilio
+  kind: 1
+  config:
+    sid: AC00000000000000000000000000000000
+    token: test_auth_token_example
+    from: "+15559876543"
+  environment: production
+  active: true
+
+whatsapp:
+  account: acme
+  type: WhatsappIntegration
+  vendor: whatsapp
+  kind: 2
+  config:
+    phone_id: "1234567890"
+    token: "test_whatsapp_token"
+    business_account_id: "9876543210"
+    webhook_verify_token: "test_verify_token_abc123"
+    app_secret: "test_app_secret_xyz789"
+  environment: production
+  active: true
+
+fcm:
+  account: acme
+  type: FcmIntegration
+  vendor: fcm
+  kind: 3
+  config:
+    project_id: "test-project"
+    server_key: "test_server_key"
+  environment: production
+  active: true
+
+apns:
+  account: acme
+  type: ApnsIntegration
+  vendor: apns
+  kind: 3
+  config:
+    team_id: "TEAM123"
+    key_id: "KEY456"
+    private_key: "-----BEGIN PRIVATE KEY-----\nMIGHAgEAtest\n-----END PRIVATE KEY-----"
+    bundle_id: "com.example.testapp"
+    apns_environment: "sandbox"
+  environment: production
+  active: true
+
+web_push:
+  account: acme
+  type: WebPushIntegration
+  vendor: web_push
+  kind: 4
+  config:
+    vapid_public_key: "BNbxGYNMhEIi5k"
+    vapid_private_key: "test_vapid_private"
+    vapid_subject: "mailto:test@example.com"
+  environment: production
+  active: true
+
+meta_social:
+  account: acme
+  type: MetaSocialIntegration
+  vendor: meta
+  kind: 5
+  config:
+    label: "Acme PK"
+    access_token: "test_meta_system_user_token"
+    app_secret: "test_meta_app_secret"
+    page_id: "100000000000001"
+    ad_account_id: "act_111111"
+    ig_business_account_id: "170000000000001"
+  environment: production
+  active: true
+
+linkedin_social:
+  account: acme
+  type: LinkedinSocialIntegration
+  vendor: linkedin
+  kind: 5
+  config:
+    label: "Acme LinkedIn"
+    access_token: "test_linkedin_access_token"
+    refresh_token: "test_linkedin_refresh_token"
+  environment: production
+  active: true

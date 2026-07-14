@@ -1,0 +1,13 @@
+greeting:
+  account: acme
+  shortcut: "/greeting"
+  title: "Welcome greeting"
+  content: "Hi there! Thanks for reaching out. How can I help you today?"
+  created_by: admin
+
+pricing:
+  account: acme
+  shortcut: "/pricing"
+  title: "Pricing info"
+  content: "Our plans start at $29/month. Would you like me to walk you through the options?"
+  created_by: admin

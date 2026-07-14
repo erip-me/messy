@@ -1,0 +1,15 @@
+$.avg_first_response_seconds: Integer
+$.avg_resolution_seconds: Integer
+$.closed_count: Integer
+$.open_count: Integer
+$.pending_count: Integer
+$.per_operator[].avatar_url: Null
+$.per_operator[].name: String
+$.per_operator[].open_count: Integer
+$.per_operator[].pending_count: Integer
+$.per_operator[].resolved_today: Integer
+$.per_operator[].user_id: Integer
+$.resolved_count: Integer
+$.tickets_this_week: Integer
+$.tickets_today: Integer
+$.unassigned_count: Integer

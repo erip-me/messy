@@ -1,0 +1,13 @@
+$.token: String
+$.user.account_id: Integer
+$.user.created_at: String
+$.user.email: String
+$.user.id: Integer
+$.user.is_super_admin: Boolean
+$.user.last_login_at: Null
+$.user.name: String
+$.user.operator_profile.avatar_url: Null
+$.user.operator_profile.online: Boolean
+$.user.operator_profile.public_name: String
+$.user.role: String
+$.user.updated_at: String

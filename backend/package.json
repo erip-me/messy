@@ -1,0 +1,14 @@
+{
+  "name": "messy-backend",
+  "private": true,
+  "scripts": {
+    "build": "esbuild app/javascript/widget/index.tsx --bundle --format=iife --global-name=MessyChat --outfile=public/widget/messy-widget.js --jsx=automatic --jsx-import-source=preact --target=es2020 --minify",
+    "build:watch": "esbuild app/javascript/widget/index.tsx --bundle --format=iife --global-name=MessyChat --outfile=public/widget/messy-widget.js --jsx=automatic --jsx-import-source=preact --target=es2020 --watch"
+  },
+  "dependencies": {
+    "preact": "^10.19.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
+  }
+}

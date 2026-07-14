@@ -1,0 +1,12 @@
+root_folder:
+  account: acme
+  environment: production
+  name: Root Folder
+  is_deleted: false
+
+sub_folder:
+  account: acme
+  environment: production
+  parent_folder: root_folder
+  name: Sub Folder
+  is_deleted: false

@@ -1,0 +1,8 @@
+first_click:
+  message: email_one
+  account: acme
+  url: "https://example.com/landing"
+  clicked_at: <%= 6.hours.ago %>
+  ip_address: "192.168.1.100"
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+  referer: "https://mail.google.com"

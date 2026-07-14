@@ -1,0 +1,8 @@
+$.device_tokens[].active: Boolean
+$.device_tokens[].app_id: Null
+$.device_tokens[].created_at: String
+$.device_tokens[].device_id: Null
+$.device_tokens[].device_name: Null
+$.device_tokens[].id: Integer
+$.device_tokens[].last_used_at: Null
+$.device_tokens[].platform: String

@@ -1,0 +1,4 @@
+$.tags[].id: Integer
+$.tags[].is_quick_reply: Boolean
+$.tags[].name: String
+$.tags[].sort_order: Integer

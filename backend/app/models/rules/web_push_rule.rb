@@ -1,0 +1,2 @@
+class WebPushRule < Rule
+end

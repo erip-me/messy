@@ -1,0 +1,95 @@
+open_chat:
+  account: acme
+  environment: production
+  customer: john
+  visitor_token: "visitor_token_abc123"
+  visitor_name: "Friendly Fox"
+  visitor_email: "john@example.com"
+  assigned_user: admin
+  status: 0
+  priority: 0
+  source: 0
+  last_message_at: <%= 5.minutes.ago %>
+  last_message_preview: "Hi, I need help with pricing"
+  subject: "Pricing question"
+
+pending_chat:
+  account: acme
+  environment: production
+  visitor_token: "visitor_token_anon456"
+  visitor_name: "Curious Penguin"
+  status: 1
+  priority: 0
+  source: 0
+  last_message_at: <%= 1.hour.ago %>
+  last_message_preview: "Hello?"
+
+snoozed_chat:
+  account: acme
+  environment: production
+  visitor_token: "visitor_token_snz789"
+  visitor_name: "Bold Eagle"
+  assigned_user: regular
+  status: 2
+  priority: 0
+  source: 0
+  snoozed_until: <%= 1.hour.from_now %>
+  last_message_at: <%= 2.hours.ago %>
+
+resolved_chat:
+  account: acme
+  environment: production
+  customer: jane
+  visitor_token: "visitor_token_resolved"
+  visitor_name: "Jane Smith"
+  visitor_email: "jane@example.com"
+  assigned_user: admin
+  status: 3
+  priority: 0
+  source: 0
+  resolved_at: <%= 30.minutes.ago %>
+  rating: 5
+  rating_comment: "Very helpful!"
+  last_message_at: <%= 1.hour.ago %>
+
+email_ticket:
+  account: acme
+  environment: production
+  customer: john
+  visitor_token: "email_ticket_token_001"
+  visitor_name: "Sarah Johnson"
+  visitor_email: "sarah@customer.com"
+  assigned_user: admin
+  status: 0
+  priority: 0
+  source: 2
+  subject: "Cannot access billing portal"
+  ticket_number: "SUP-1001"
+  last_message_at: <%= 2.hours.ago %>
+  last_message_preview: "I recently upgraded my plan but cannot access the billing portal"
+
+email_ticket_resolved:
+  account: acme
+  environment: production
+  visitor_token: "email_ticket_token_002"
+  visitor_name: "Mike Chen"
+  visitor_email: "mike@startup.io"
+  assigned_user: admin
+  status: 3
+  priority: 1
+  source: 2
+  subject: "API rate limiting"
+  ticket_number: "SUP-1002"
+  last_message_at: <%= 1.day.ago %>
+  resolved_at: <%= 6.hours.ago %>
+  first_response_at: <%= 23.hours.ago %>
+
+other_account_chat:
+  account: other_co
+  environment: other_env
+  visitor_token: "visitor_token_other"
+  visitor_name: "Other Visitor"
+  status: 0
+  priority: 0
+  source: 0
+  last_message_at: <%= 10.minutes.ago %>

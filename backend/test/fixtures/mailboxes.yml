@@ -1,0 +1,14 @@
+support:
+  account: acme
+  environment: production
+  name: Support
+  email_address: support@acme.com
+  provider: 0
+  config: <%= { host: "imap.gmail.com", port: 993, username: "support@acme.com", password: "test", ssl: true, folder: "INBOX" }.to_json %>
+  active: true
+  ticket_prefix: SUP
+  next_ticket_number: 2001
+  auto_assign: true
+  auto_reply_enabled: true
+  auto_close_days: 7
+  notification_events: <%= { ticket_created: true, ticket_assigned: true, ticket_reply_from_operator: true, ticket_closed: true, ticket_reopened: true }.to_json %>

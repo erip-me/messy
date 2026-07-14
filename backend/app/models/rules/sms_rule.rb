@@ -1,0 +1,2 @@
+class SmsRule < Rule
+end

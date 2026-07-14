@@ -1,0 +1,5 @@
+$.canned_responses[].content: String
+$.canned_responses[].created_by: String
+$.canned_responses[].id: Integer
+$.canned_responses[].shortcut: String
+$.canned_responses[].title: String

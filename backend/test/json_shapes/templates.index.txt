@@ -1,0 +1,17 @@
+$[].account_id: Integer
+$[].body: String
+$[].body_format: String
+$[].channel: String
+$[].created_at: String
+$[].environment_id: Integer
+$[].folder_id: Null
+$[].id: Integer
+$[].is_deleted: Boolean
+$[].layout_id: Integer
+$[].layout_id: Null
+$[].name: String
+$[].preview: Null
+$[].subject: Null
+$[].subject: String
+$[].trigger: String
+$[].updated_at: String

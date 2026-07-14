@@ -1,0 +1,50 @@
+visitor_message:
+  conversation: open_chat
+  account: acme
+  sender_type: "Customer"
+  sender_id: <%= ActiveRecord::FixtureSet.identify(:john) %>
+  message_type: 0
+  content: "Hi, I need help with pricing"
+  private: false
+  read_by_visitor: true
+  read_by_operator: true
+
+operator_reply:
+  conversation: open_chat
+  account: acme
+  sender_type: "User"
+  sender_id: <%= ActiveRecord::FixtureSet.identify(:admin) %>
+  message_type: 0
+  content: "Sure! What plan are you interested in?"
+  private: false
+  read_by_visitor: false
+  read_by_operator: true
+
+internal_note:
+  conversation: open_chat
+  account: acme
+  sender_type: "User"
+  sender_id: <%= ActiveRecord::FixtureSet.identify(:admin) %>
+  message_type: 3
+  content: "Customer seems interested in Pro plan"
+  private: true
+  read_by_visitor: false
+  read_by_operator: true
+
+system_message:
+  conversation: resolved_chat
+  account: acme
+  sender_type: "System"
+  message_type: 2
+  content: "Conversation resolved by Admin User"
+  private: false
+
+pending_visitor_message:
+  conversation: pending_chat
+  account: acme
+  sender_type: "Customer"
+  message_type: 0
+  content: "Hello?"
+  private: false
+  read_by_visitor: true
+  read_by_operator: false

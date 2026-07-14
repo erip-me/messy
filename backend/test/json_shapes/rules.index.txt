@@ -1,0 +1,13 @@
+$[].active: Boolean
+$[].condition: String
+$[].created_at: String
+$[].environment_id: Integer
+$[].environment_name: String
+$[].id: Integer
+$[].name: String
+$[].outcome: String
+$[].redirect_to: Null
+$[].tags[]: (empty)
+$[].tags[]: String
+$[].type: String
+$[].updated_at: String

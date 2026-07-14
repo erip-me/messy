@@ -1,0 +1,43 @@
+welcome:
+  account: acme
+  environment: production
+  name: Welcome Email
+  trigger: user.signup
+  channel: email
+  subject: Welcome to Acme
+  body: "<p>Welcome aboard!</p>"
+  body_format: html
+  is_deleted: false
+
+password_reset:
+  account: acme
+  environment: production
+  name: Password Reset
+  trigger: user.password_reset
+  channel: email
+  subject: Reset your password
+  body: "<p>Click the link to reset your password.</p>"
+  body_format: html
+  is_deleted: false
+
+welcome_sms:
+  account: acme
+  environment: production
+  name: Welcome SMS
+  trigger: user.signup
+  channel: sms
+  body: "Welcome to Acme!"
+  body_format: html
+  is_deleted: false
+
+markdown_template:
+  account: acme
+  environment: production
+  name: Markdown Welcome
+  trigger: user.markdown_welcome
+  channel: email
+  subject: Welcome
+  body: "# Hello\n\nWelcome to our platform.\n\n[Get Started](https://example.com)"
+  body_format: markdown
+  layout: default_layout
+  is_deleted: false

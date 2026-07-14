@@ -1,0 +1,23 @@
+help_tag:
+  account: acme
+  name: "I need help"
+  is_quick_reply: true
+  sort_order: 0
+
+pricing_tag:
+  account: acme
+  name: "Pricing question"
+  is_quick_reply: true
+  sort_order: 1
+
+bug_tag:
+  account: acme
+  name: "Bug report"
+  is_quick_reply: false
+  sort_order: 2
+
+other_tag:
+  account: other_co
+  name: "Support"
+  is_quick_reply: true
+  sort_order: 0

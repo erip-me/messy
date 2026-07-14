@@ -1,0 +1,39 @@
+acme_settings:
+  account: acme
+  widget_key: "test_widget_key_abc123"
+  enabled: true
+  primary_color: "#3B86E4"
+  secondary_color: "#ffffff"
+  text_color: "#ffffff"
+  position: "bottom-right"
+  greeting_message: "Hi there! How can we help?"
+  offline_message: "We are offline. Leave a message."
+  require_email_before_chat: false
+  show_operator_avatars: true
+  show_operator_count: true
+  business_hours_enabled: false
+  business_hours: '{}'
+  timezone: "UTC"
+  auto_close_hours: 24
+  welcome_triggers: '[]'
+  allowed_domains: '["*"]'
+
+other_settings:
+  account: other_co
+  widget_key: "test_widget_key_other_xyz"
+  enabled: true
+  primary_color: "#FF0000"
+  secondary_color: "#000000"
+  text_color: "#ffffff"
+  position: "bottom-right"
+  greeting_message: "Hello!"
+  offline_message: "Away."
+  require_email_before_chat: false
+  show_operator_avatars: false
+  show_operator_count: false
+  business_hours_enabled: false
+  business_hours: '{}'
+  timezone: "UTC"
+  auto_close_hours: 24
+  welcome_triggers: '[]'
+  allowed_domains: '["*"]'

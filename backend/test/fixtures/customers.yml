@@ -1,0 +1,29 @@
+john:
+  account: acme
+  email: john@example.com
+  first_name: John
+  last_name: Doe
+  custom_attributes:
+    role: buyer
+  last_seen_at: <%= 1.hour.ago %>
+
+jane:
+  account: acme
+  email: jane@example.com
+  first_name: Jane
+  last_name: Smith
+  custom_attributes: {}
+
+recipient:
+  account: acme
+  email: recipient@example.com
+  first_name: Test
+  last_name: Recipient
+  custom_attributes: {}
+
+other_customer:
+  account: other_co
+  email: john@example.com
+  first_name: John
+  last_name: Other
+  custom_attributes: {}

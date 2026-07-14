@@ -1,0 +1,27 @@
+johns_iphone:
+  account: acme
+  customer: john
+  token: "fcm_token_johns_iphone_abc123"
+  platform: 0
+  active: true
+
+johns_android:
+  account: acme
+  customer: john
+  token: "fcm_token_johns_android_def456"
+  platform: 1
+  active: true
+
+johns_web:
+  account: acme
+  customer: john
+  token: '{"endpoint":"https://push.example.com/sub/abc","keys":{"p256dh":"BNtest","auth":"authtest"}}'
+  platform: 2
+  active: true
+
+inactive_token:
+  account: acme
+  customer: jane
+  token: "fcm_token_inactive_ghi789"
+  platform: 0
+  active: false

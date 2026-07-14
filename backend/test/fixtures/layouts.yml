@@ -1,0 +1,23 @@
+default_layout:
+  account: acme
+  environment: production
+  name: Default Email Layout
+  body: "<html><body>{{ content }}</body></html>"
+  transformers:
+    heading: '<tr><td><h1 style="color: blue;">{{text}}</h1></td></tr>'
+    paragraph: '<tr><td><p style="font-size: 16px;">{{text}}</p></td></tr>'
+    link: '<a href="{{href}}" style="color: red;">{{text}}</a>'
+
+empty_transformers_layout:
+  account: acme
+  environment: production
+  name: Plain Layout
+  body: "<html><body>{{ content }}</body></html>"
+  transformers: {}
+
+other_layout:
+  account: other_co
+  environment: other_env
+  name: Other Layout
+  body: "<html><body>{{ content }}</body></html>"
+  transformers: {}

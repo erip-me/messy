@@ -1,0 +1,77 @@
+# Self-hosted Messy: Postgres + Rails API + Solid Queue worker + frontend SPA.
+# Copy .env.example to .env, adjust, then: docker compose up -d
+# Docs: https://messy.sh/docs/docker-compose
+services:
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: messy
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-messy}
+      POSTGRES_DB: messy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U messy"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    image: messy-backend
+    command: bash -c "bundle exec rails db:prepare && bundle exec puma -C config/puma.rb"
+    environment: &backend_env
+      RAILS_ENV: production
+      RACK_ENV: production
+      PORT: "5000"
+      DATABASE_URL: postgres://messy:${POSTGRES_PASSWORD:-messy}@db:5432/messy
+      API_URL: ${API_URL:-http://localhost:8081}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080}
+      ACTIVE_STORAGE_ROOT: /data/storage
+      RAILS_LOG_TO_STDOUT: "true"
+      RAILS_SERVE_STATIC_FILES: "true"
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?SECRET_KEY_BASE is required in .env - generate one with 'openssl rand -hex 64'}
+      EMAIL_FROM: ${EMAIL_FROM:-messy@localhost}
+      SMTP_ADDRESS: ${SMTP_ADDRESS:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-eu-west-1}
+    ports:
+      - "8081:5000"
+    volumes:
+      - storage:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/up || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+
+  worker:
+    image: messy-backend
+    command: bundle exec rake solid_queue:start
+    environment: *backend_env
+    volumes:
+      - storage:/data
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    environment:
+      MESSY_API_URL: ${API_URL:-http://localhost:8081}
+    ports:
+      - "8080:5000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  storage:

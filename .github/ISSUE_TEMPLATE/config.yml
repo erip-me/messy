@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/erip-me/messy/blob/main/SECURITY.md
+    about: Please report security issues privately to security@messy.sh, not as a public issue.
+  - name: Documentation
+    url: https://messy.sh/docs
+    about: Guides for the API, self-hosting, templates and integrations.

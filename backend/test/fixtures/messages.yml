@@ -1,0 +1,64 @@
+email_one:
+  account: acme
+  environment: production
+  template: welcome
+  type: EmailMessage
+  trigger: user.signup
+  to: recipient@example.com
+  subject: Welcome to Acme
+  body: "<p>Welcome aboard!</p>"
+  tags:
+    - welcome
+    - onboarding
+  scope: 0
+  status: 10
+  sent_at: <%= 1.day.ago %>
+  is_deleted: false
+  tracking_token: <%= Digest::SHA256.hexdigest("email_one_fixture_salt") %>
+  tracking_salt: <%= SecureRandom.hex(32) %>
+  first_opened_at: <%= 12.hours.ago %>
+  open_count: 1
+
+pending_email:
+  account: acme
+  environment: production
+  type: EmailMessage
+  trigger: user.reminder
+  to: pending@example.com
+  subject: Reminder
+  body: "<p>This is a reminder.</p>"
+  tags:
+    - reminder
+  scope: 0
+  status: 0
+  is_deleted: false
+  open_count: 0
+
+sms_one:
+  account: acme
+  environment: production
+  type: SmsMessage
+  trigger: user.verify
+  to: "+15551234567"
+  body: "Your verification code is 123456"
+  tags: []
+  scope: 0
+  status: 10
+  sent_at: <%= 2.hours.ago %>
+  is_deleted: false
+  open_count: 0
+
+whatsapp_sent:
+  account: acme
+  environment: production
+  type: WhatsappMessage
+  trigger: seller.otp
+  to: "+31647508676"
+  subject: seller_otp
+  body: "[WhatsApp Template: seller_otp]"
+  tags: []
+  scope: 0
+  status: 10
+  sent_at: <%= 1.hour.ago %>
+  is_deleted: false
+  open_count: 0
