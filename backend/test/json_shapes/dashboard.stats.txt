@@ -26,3 +26,4 @@ $.tags.REMINDER: Integer
 $.tags.WELCOME: Integer
 $.templates.naked: Integer
 $.templates.templated: Integer
+$.templates.total: Integer

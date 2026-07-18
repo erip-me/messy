@@ -21,7 +21,8 @@ class DashboardController < ApplicationController
           .group("CASE WHEN tags IS NULL OR tags = '[]' THEN 'untagged' ELSE 'tagged' END")
           .count,
         messages_per_day: calculate_messages_per_day,
-        popular_tags: calculate_popular_tags
+        popular_tags: calculate_popular_tags,
+        template_count: @environment.templates.count
       }
     end
 
@@ -67,6 +68,7 @@ class DashboardController < ApplicationController
       },
       messages_per_day: aggregates[:messages_per_day],
       templates: {
+        total: aggregates[:template_count],
         templated: template_counts['templated'] || 0,
         naked: template_counts['naked'] || 0
       },
@@ -89,7 +91,7 @@ class DashboardController < ApplicationController
   # Keyed by environment id (the only filter the action varies on). Bump the
   # version suffix if the shape of the cached aggregates changes.
   def stats_cache_key
-    "dashboard_stats/v1/environment/#{@environment.id}"
+    "dashboard_stats/v2/environment/#{@environment.id}"
   end
 
   def calculate_messages_per_day
@@ -116,7 +118,7 @@ class DashboardController < ApplicationController
       deliveries:    { total: 0, email_sent: 0, sms_sent: 0 },
       errors:        { total: 0, invalid_email: 0, bounced: 0 },
       messages_per_day: days.each_with_object({}) { |day, h| h[day] = 0 },
-      templates:     { templated: 0, naked: 0 },
+      templates:     { total: 0, templated: 0, naked: 0 },
       scope:         { internal: 0, external: 0 },
       tags:          {},
       identification: { tagged: 0, untagged: 0 }

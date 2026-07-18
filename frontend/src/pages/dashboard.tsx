@@ -71,15 +71,14 @@ export function DashboardPage() {
       const total = raw.messages?.total ?? raw.total_messages ?? 0;
       const sent = raw.deliveries?.total ?? 0;
       const rate = total > 0 ? Math.round((sent / total) * 100) : 0;
-      const templated = raw.templates?.templated ?? 0;
-      const naked = raw.templates?.naked ?? 0;
+      const templateCount = raw.templates?.total ?? 0;
       const perDay = raw.messages_per_day || {};
       const todayCount = Object.values(perDay).length > 0 ? (Object.values(perDay).slice(-1)[0] as number || 0) : 0;
       setStats({
         total_messages: total,
         success_rate: rate,
         total_environments: (Array.isArray(envsRes.data) ? envsRes.data : envsRes.data?.environments || []).length,
-        total_templates: templated + naked,
+        total_templates: templateCount,
         messages_last_24h: todayCount,
         messages_per_day: raw.messages_per_day || {},
         ...raw,

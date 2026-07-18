@@ -14,6 +14,7 @@ class DashboardControllerTest < ActionDispatch::IntegrationTest
     assert json.key?("scope")
     assert json.key?("tags")
     assert json.key?("identification")
+    assert_equal environments(:production).templates.count, json.dig("templates", "total")
   end
 
   test "deliveries count delivered messages as successes" do
