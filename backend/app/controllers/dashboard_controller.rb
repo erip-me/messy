@@ -38,9 +38,10 @@ class DashboardController < ApplicationController
     mobile_push_processed = base_stats.select { |k, _| k[0] == 'MobilePushMessage' }.values.sum
     web_push_processed = base_stats.select { |k, _| k[0] == 'WebPushMessage' }.values.sum
 
-    sent_messages = base_stats.select { |k, _| k[1] == 'sent' }.values.sum
-    email_sent = base_stats[['EmailMessage', 'sent']] || 0
-    sms_sent = base_stats[['SmsMessage', 'sent']] || 0
+    # 'delivered' is the post-webhook upgrade of 'sent' — both are successes.
+    sent_messages = base_stats.select { |k, _| k[1].in?(%w[sent delivered]) }.values.sum
+    email_sent = base_stats.select { |k, _| k[0] == 'EmailMessage' && k[1].in?(%w[sent delivered]) }.values.sum
+    sms_sent = base_stats.select { |k, _| k[0] == 'SmsMessage' && k[1].in?(%w[sent delivered]) }.values.sum
 
     failed_messages = base_stats.select { |k, _| k[1] == 'failed' }.values.sum
     email_failed = base_stats[['EmailMessage', 'failed']] || 0
