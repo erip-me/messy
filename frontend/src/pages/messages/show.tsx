@@ -345,8 +345,12 @@ export function MessageShowPage() {
                         return (
                           <div>
                             <label className="text-sm font-medium text-muted-foreground">Message Preview</label>
-                            <div className="mt-1 p-3 bg-muted/50 rounded-md">
-                              <p className="text-sm whitespace-pre-wrap">{preview}</p>
+                            <div className="mt-1 rounded-md bg-muted/50 p-4">
+                              <div className="flex justify-end">
+                                <div className="max-w-[75%] rounded-[16px_16px_4px_16px] bg-status-green px-3.5 py-2.5 text-sm leading-relaxed">
+                                  <p className="whitespace-pre-wrap">{preview}</p>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         );
