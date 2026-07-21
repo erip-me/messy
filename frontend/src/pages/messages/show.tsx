@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getMessageById, retryMessage, Message, ChildMessage, MessageDelivery } from '@/api/messages';
+import { getMessageById, retryMessage, getWhatsAppTemplates, Message, ChildMessage, MessageDelivery } from '@/api/messages';
 import { copyToClipboard } from '@/utils/clipboard';
 import toast from 'react-hot-toast';
 import { parseRecipients } from '@/utils/recipients';
@@ -45,12 +45,38 @@ export function MessageShowPage() {
   const [message, setMessage] = useState<Message | null>(null);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
+  const [waPreview, setWaPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
       loadMessage();
     }
   }, [id]);
+
+  // For WA template messages without a stored merged body (sent via API before
+  // compose started persisting it), merge the current template text client-side.
+  useEffect(() => {
+    setWaPreview(null);
+    if (!message || message.channel !== 'whatsapp' || !message.subject) return;
+    if (message.body && !message.body.startsWith('[WhatsApp Template:')) return;
+    getWhatsAppTemplates()
+      .then((templates) => {
+        const tpl =
+          templates.find((t) => t.name === message.subject && t.language === message.language) ||
+          templates.find((t) => t.name === message.subject);
+        const text = tpl?.components.find((c) => c.type === 'BODY')?.text;
+        if (!text) return;
+        const tags: any[] = message.tags || [];
+        const params: string[] =
+          typeof tags[0] === 'string'
+            ? tags
+            : (tags.find((t) => t.type?.toLowerCase() === 'body')?.parameters || []).map(
+                (p: any) => p.text ?? ''
+              );
+        setWaPreview(text.replace(/\{\{(\d+)\}\}/g, (m, n) => params[Number(n) - 1] || m));
+      })
+      .catch(() => {});
+  }, [message]);
 
   const loadMessage = async () => {
     try {
@@ -310,14 +336,21 @@ export function MessageShowPage() {
                         </div>
                       </div>
 
-                      {message.body && !message.body.startsWith('[WhatsApp Template:') && (
-                        <div>
-                          <label className="text-sm font-medium text-muted-foreground">Message Preview</label>
-                          <div className="mt-1 p-3 bg-muted/50 rounded-md">
-                            <p className="text-sm whitespace-pre-wrap">{message.body}</p>
+                      {(() => {
+                        const preview =
+                          message.body && !message.body.startsWith('[WhatsApp Template:')
+                            ? message.body
+                            : waPreview;
+                        if (!preview) return null;
+                        return (
+                          <div>
+                            <label className="text-sm font-medium text-muted-foreground">Message Preview</label>
+                            <div className="mt-1 p-3 bg-muted/50 rounded-md">
+                              <p className="text-sm whitespace-pre-wrap">{preview}</p>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {message.tags && message.tags.length > 0 && (
                         <div>
