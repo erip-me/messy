@@ -310,6 +310,15 @@ export function MessageShowPage() {
                         </div>
                       </div>
 
+                      {message.body && !message.body.startsWith('[WhatsApp Template:') && (
+                        <div>
+                          <label className="text-sm font-medium text-muted-foreground">Message Preview</label>
+                          <div className="mt-1 p-3 bg-muted/50 rounded-md">
+                            <p className="text-sm whitespace-pre-wrap">{message.body}</p>
+                          </div>
+                        </div>
+                      )}
+
                       {message.tags && message.tags.length > 0 && (
                         <div>
                           <label className="text-sm font-medium text-muted-foreground">Parameters</label>

@@ -183,6 +183,9 @@ export function MessageComposePage() {
     }
   };
 
+  const mergeWaTemplate = (text: string, params: string[]) =>
+    text.replace(/\{\{(\d+)\}\}/g, (match, n) => params[Number(n) - 1]?.trim() || match);
+
   const handleWaTemplateSelect = (templateName: string) => {
     setSelectedWaTemplate(templateName);
     if (!templateName) {
@@ -276,11 +279,13 @@ export function MessageComposePage() {
         try {
           setSending(true);
           const tpl = waTemplates.find((t) => t.name === selectedWaTemplate);
+          const bodyText = tpl?.components.find((c) => c.type === "BODY")?.text;
           await sendMessage(
             {
               ...formData,
               subject: selectedWaTemplate,
-              body: "",
+              // merged template text, record-keeping only; delivery uses subject + tags
+              body: bodyText ? mergeWaTemplate(bodyText, waParams) : "",
               tags: waParams.filter((p) => p.trim()),
               language: tpl?.language || "en",
             },
@@ -823,8 +828,8 @@ export function MessageComposePage() {
                         <div className="space-y-3">
                           {bodyComponent?.text && (
                             <div className="rounded-lg border bg-muted/30 p-3">
-                              <Label className="text-xs text-muted-foreground mb-1 block">Template preview</Label>
-                              <p className="text-sm whitespace-pre-wrap">{bodyComponent.text}</p>
+                              <Label className="text-xs text-muted-foreground mb-1 block">Message preview</Label>
+                              <p className="text-sm whitespace-pre-wrap">{mergeWaTemplate(bodyComponent.text, waParams)}</p>
                             </div>
                           )}
                           {waParams.length > 0 && (
