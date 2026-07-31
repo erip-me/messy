@@ -3,9 +3,10 @@
 # subscribes here. Scoped: a user may only stream a region their account owns.
 class SocialRegionChannel < ApplicationCable::Channel
   def subscribed
-    reject and return unless current_user
+    account_id = subscription_account_id
+    reject and return unless account_id
 
-    region = SocialRegion.find_by(id: params[:region_id], account_id: current_user.account_id)
+    region = SocialRegion.find_by(id: params[:region_id], account_id: account_id)
     reject and return unless region
 
     stream_from "social_region_#{region.id}"

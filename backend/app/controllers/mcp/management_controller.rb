@@ -60,7 +60,7 @@ module Mcp
     private
 
     def account
-      current_user.account
+      resolved_account
     end
 
     def boolean(value)

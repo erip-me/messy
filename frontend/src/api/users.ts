@@ -46,7 +46,26 @@ export const getUserById = async (id: number): Promise<User> => {
   return response.data;
 };
 
-export const inviteUser = async (data: InviteUserRequest): Promise<User> => {
+// An outstanding invitation. Only the address the admin typed — someone who
+// hasn't accepted isn't a member, so there is no profile to show.
+export interface WorkspaceInvitation {
+  id: number;
+  email: string;
+  role: UserRole;
+  created_at: string;
+}
+
+// Inviting a brand new address creates the person outright. Inviting one that
+// already has a Messy login only creates an invitation, which does nothing until
+// they accept — so the response is one shape or the other.
+export type InviteResult = User | { status: "invited"; email: string; role: UserRole };
+
+export const isPendingInvite = (
+  result: InviteResult,
+): result is { status: "invited"; email: string; role: UserRole } =>
+  (result as { status?: string }).status === "invited";
+
+export const inviteUser = async (data: InviteUserRequest): Promise<InviteResult> => {
   const response = await request({
     url: controller,
     method: "POST",
@@ -54,6 +73,23 @@ export const inviteUser = async (data: InviteUserRequest): Promise<User> => {
     headers: headerJson,
   });
   return response.data;
+};
+
+export const getPendingInvitations = async (): Promise<WorkspaceInvitation[]> => {
+  const response = await request({
+    url: `${controller}/invitations`,
+    method: "GET",
+    headers: headerJson,
+  });
+  return response.data;
+};
+
+export const revokeInvitation = async (id: number): Promise<void> => {
+  await request({
+    url: `${controller}/invitations/${id}`,
+    method: "DELETE",
+    headers: headerJson,
+  });
 };
 
 export const updateUserRole = async (id: number, role: UserRole): Promise<User> => {

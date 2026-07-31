@@ -103,7 +103,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     patch "/users/#{users(:regular).id}", params: { user: { role: "admin" } },
           headers: auth_headers(users(:admin)), as: :json
     assert_response :success
-    assert users(:regular).reload.admin?
+    # Role lives on the membership now — a user can be an admin of one workspace
+    # and a member of another.
+    assert_equal "admin", users(:regular).membership_for(accounts(:acme)).reload.role
   end
 
   test "cannot demote the last admin" do
@@ -114,10 +116,10 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "can demote an admin when another admin remains" do
-    users(:regular).update!(role: :admin)
+    users(:regular).membership_for(accounts(:acme)).update!(role: :admin)
     patch "/users/#{users(:admin).id}", params: { user: { role: "member" } },
           headers: auth_headers(users(:admin)), as: :json
     assert_response :success
-    assert users(:admin).reload.member?
+    assert_equal "member", users(:admin).membership_for(accounts(:acme)).reload.role
   end
 end

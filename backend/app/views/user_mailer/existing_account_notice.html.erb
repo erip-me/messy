@@ -15,10 +15,10 @@
 <body>
   <div class="card">
     <div class="logo">Messy</div>
-    <h1>You've been invited!</h1>
-    <p><%= @inviter.name %> has invited you to the <strong><%= @user.account.name %></strong> workspace on Messy. Click the button below to accept and set up your login.</p>
-    <a href="<%= @accept_link %>" class="btn" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:9999px;font-size:15px;font-weight:600;">Accept Invitation</a>
-    <p class="note">This link expires in 30 minutes. If you weren't expecting this invitation, you can ignore this email.</p>
+    <h1>You already have an account</h1>
+    <p>Someone just tried to sign up for Messy with <%= @user.email %>, and that address already has a login. No new account was created and nothing about your account has changed.</p>
+    <a href="<%= @login_link %>" class="btn" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:9999px;font-size:15px;font-weight:600;">Sign in to Messy</a>
+    <p class="note">If that was you, just sign in above. If it wasn't, you can ignore this email — signing in always requires a link sent to this address, so nobody else can get in.</p>
   </div>
 </body>
 </html>

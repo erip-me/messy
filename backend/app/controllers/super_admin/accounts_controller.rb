@@ -32,17 +32,28 @@ class SuperAdmin::AccountsController < SuperAdmin::BaseController
   def create
     @account = Account.new(account_params)
 
-    if @account.save
-      # Create first user if provided
+    ActiveRecord::Base.transaction do
+      @account.save!
+
+      # Create first user if provided. `account.users` is a has_many :through
+      # now, so it can't build the User — nothing would set users.account_id.
+      # Build it directly: `account:` sets their default workspace and
+      # User#ensure_default_membership grants a membership carrying this role.
+      #
+      # :admin for the same reason SignupsController uses it — this is the
+      # workspace's first and only person, so anything less leaves it with
+      # nobody who can invite users or manage environments.
       if params[:first_user].present?
-        user_params = params[:first_user].permit(:name, :email)
-        @user = @account.users.create!(user_params)
+        @user = User.create!(
+          params[:first_user].permit(:name, :email).merge(account: @account, role: :admin)
+        )
       end
-      
-      render json: SuperAdmin::AccountResource.new(@account).serialize, status: :created
-    else
-      render json: @account.errors, status: :unprocessable_entity
     end
+
+    render json: SuperAdmin::AccountResource.new(@account).serialize, status: :created
+  rescue ActiveRecord::RecordInvalid => e
+    # Rolled back, so a bad first_user no longer leaves an orphan account behind.
+    render json: e.record.errors, status: :unprocessable_entity
   end
 
   # PATCH/PUT /admin/accounts/1

@@ -29,7 +29,7 @@ class MetaDiscoveryController < ApplicationController
   private
 
   def set_integration
-    @integration = current_user.account.integrations.find(params[:id])
+    @integration = resolved_account.integrations.find(params[:id])
     return if @integration.is_a?(MetaSocialIntegration)
 
     render json: { error: "Not a Meta integration" }, status: :unprocessable_entity

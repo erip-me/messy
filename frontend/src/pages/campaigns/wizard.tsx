@@ -596,7 +596,7 @@ export function CampaignWizardPage() {
                   <Users2 className="h-5 w-5 text-muted-foreground" />
                   <div className="flex-1">
                     <p className="font-medium text-sm">All Contacts</p>
-                    <p className="text-xs text-muted-foreground">Send to everyone in your account</p>
+                    <p className="text-xs text-muted-foreground">Send to everyone in this workspace</p>
                   </div>
                 </button>
 

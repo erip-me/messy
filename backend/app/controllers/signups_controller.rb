@@ -3,6 +3,11 @@ class SignupsController < ApplicationController
 
   TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify'.freeze
 
+  # Returned whether or not the address is already registered, so this public
+  # endpoint can't be used to enumerate accounts. Same reasoning (and same
+  # shape) as MagicLinksController::GENERIC_MAGIC_LINK_RESPONSE.
+  SIGNUP_SUBMITTED_RESPONSE = 'Check your email to finish setting up your account.'.freeze
+
   def create
     email        = params[:email]&.strip&.downcase
     name         = params[:name]&.strip
@@ -16,13 +21,20 @@ class SignupsController < ApplicationController
       return render json: { error: 'Name, email, and account name are required' }, status: :unprocessable_entity
     end
 
-    if User.exists?(email: email)
-      return render json: { error: 'An account with this email already exists. Please sign in instead.' }, status: :conflict
+    # Deliberately NOT a 409. Telling the caller "that email is taken" turns this
+    # into an account-enumeration oracle for anyone past the captcha. Answer
+    # exactly as for a fresh signup and notify the address's real owner, who is
+    # the only person entitled to know.
+    if (existing = User.find_by(email: email))
+      UserMailer.with(user: existing).existing_account_notice.deliver_later
+      return render json: { message: SIGNUP_SUBMITTED_RESPONSE }, status: :created
     end
 
     ActiveRecord::Base.transaction do
       account = Account.create!(name: account_name, plan: 'trial', trial_ends_at: 14.days.from_now, status: 'pending_verification')
-      # The signing-up user owns the new account, so they are its first admin.
+      # The signing-up user owns the new workspace, so they are its first admin.
+      # `account:` sets their default workspace and User#ensure_default_membership
+      # grants the matching admin membership.
       user    = User.create!(account: account, name: name, email: email, role: :admin)
       user.generate_magic_link_token!
 
@@ -39,7 +51,7 @@ class SignupsController < ApplicationController
         }, status: :created
       else
         UserMailer.with(user: user).verification_email.deliver_later
-        render json: { message: 'Account created! Check your email to verify your address.' }, status: :created
+        render json: { message: SIGNUP_SUBMITTED_RESPONSE }, status: :created
       end
     end
   rescue ActiveRecord::RecordInvalid => e

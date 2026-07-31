@@ -15,10 +15,10 @@
 <body>
   <div class="card">
     <div class="logo">Messy</div>
-    <h1>You've been invited!</h1>
-    <p><%= @inviter.name %> has invited you to the <strong><%= @user.account.name %></strong> workspace on Messy. Click the button below to accept and set up your login.</p>
-    <a href="<%= @accept_link %>" class="btn" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:9999px;font-size:15px;font-weight:600;">Accept Invitation</a>
-    <p class="note">This link expires in 30 minutes. If you weren't expecting this invitation, you can ignore this email.</p>
+    <h1>You've been invited to a workspace</h1>
+    <p><%= @inviter.name %> invited you to <strong><%= @account.name %></strong> on Messy. Nothing has changed yet — you join only once you accept, and your existing workspaces are untouched either way.</p>
+    <a href="<%= @workspace_link %>" class="btn" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:9999px;font-size:15px;font-weight:600;">Review invitation</a>
+    <p class="note">Sign in as usual with <%= @user.email %> — the invitation is waiting in the app, so this link isn't the only way in. If you weren't expecting it, ignore this email or decline; until you accept, <%= @account.name %> can't see anything about your account.</p>
   </div>
 </body>
 </html>

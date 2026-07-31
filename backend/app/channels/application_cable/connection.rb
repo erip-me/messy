@@ -33,12 +33,21 @@ module ApplicationCable
 
     def find_account_id
       if current_user
+        # An operator may be working in a workspace other than their default, and a
+        # WebSocket can't carry X-Account-Id. Accept a requested workspace only
+        # after checking membership — same rule as the HTTP path.
+        requested = request.params[:account_id].presence
+        if requested
+          account = Account.find_by(id: requested)
+          return account.id if account && current_user.member_of?(account)
+        end
         current_user.account_id
       elsif request.params[:widget_key].present?
         @widget_settings = ChatWidgetSettings.find_by(widget_key: request.params[:widget_key])
         @widget_settings&.account_id
       end
-      # No fallback to bare account_id from params — that would let anyone claim any account
+      # Still no fallback to an *unverified* account_id from params — an
+      # unauthenticated caller can never name an account.
     end
 
     def verify_widget_origin!

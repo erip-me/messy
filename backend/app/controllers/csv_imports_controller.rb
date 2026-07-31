@@ -17,7 +17,7 @@ class CsvImportsController < ApplicationController
     headers = parsed.headers.compact
     preview_rows = parsed.first(10).map(&:to_h)
 
-    import = current_user.account.csv_imports.create!(
+    import = resolved_account.csv_imports.create!(
       user: current_user,
       csv_content: csv_content,
       total_rows: parsed.length,
@@ -36,7 +36,7 @@ class CsvImportsController < ApplicationController
 
   # POST /csv_imports/:id/validate
   def validate
-    import = current_user.account.csv_imports.find(params[:id])
+    import = resolved_account.csv_imports.find(params[:id])
     field_mapping = params[:field_mapping].is_a?(ActionController::Parameters) ? params[:field_mapping].permit(params[:field_mapping].keys).to_h : {}
 
     return render json: { error: 'Email mapping is required' }, status: :bad_request unless field_mapping.values.include?('email')
@@ -74,7 +74,7 @@ class CsvImportsController < ApplicationController
 
   # POST /csv_imports/:id/start
   def start
-    import = current_user.account.csv_imports.find(params[:id])
+    import = resolved_account.csv_imports.find(params[:id])
     return render json: { error: 'Import already started' }, status: :bad_request unless import.status == 'pending'
 
     field_mapping = params[:field_mapping].is_a?(ActionController::Parameters) ? params[:field_mapping].permit(params[:field_mapping].keys).to_h : {}
@@ -91,13 +91,13 @@ class CsvImportsController < ApplicationController
 
   # GET /csv_imports/:id
   def show
-    import = current_user.account.csv_imports.find(params[:id])
+    import = resolved_account.csv_imports.find(params[:id])
     render json: CsvImportResource.new(import).serialize
   end
 
   # GET /csv_imports
   def index
-    imports = current_user.account.csv_imports.order(created_at: :desc).limit(20)
+    imports = resolved_account.csv_imports.order(created_at: :desc).limit(20)
     render json: CsvImportResource.new(imports).serialize
   end
 end

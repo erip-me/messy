@@ -1,7 +1,9 @@
 class OperatorPresenceChannel < ApplicationCable::Channel
   def subscribed
-    reject and return unless current_user
-    stream_from "operator_presence_#{current_user.account_id}"
+    @account_id = subscription_account_id
+    reject and return unless @account_id
+
+    stream_from "operator_presence_#{@account_id}"
 
     ensure_profile!
     # Only update heartbeat, don't change availability — respect the user's last choice
@@ -24,7 +26,7 @@ class OperatorPresenceChannel < ApplicationCable::Channel
   end
 
   def unsubscribed
-    return unless current_user
+    return unless current_user && @account_id
     broadcast_presence_list
   end
 
@@ -47,14 +49,19 @@ class OperatorPresenceChannel < ApplicationCable::Channel
 
   private
 
+  # NOTE: OperatorProfile is has_one per user and carries a single account_id, so a
+  # multi-workspace operator has a profile in only one workspace and won't appear
+  # in the other's presence list. Making profiles per-workspace is a separate
+  # change; this method deliberately keeps the existing single-profile behaviour
+  # rather than silently creating a second one.
   def ensure_profile!
     current_user.operator_profile || current_user.create_operator_profile!(
-      account: current_user.account,
+      account_id: @account_id,
       public_name: current_user.name || current_user.email.split("@").first
     )
   end
 
   def broadcast_presence_list
-    self.class.broadcast_presence_for(current_user.account_id)
+    self.class.broadcast_presence_for(@account_id)
   end
 end

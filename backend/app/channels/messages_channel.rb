@@ -1,8 +1,9 @@
 class MessagesChannel < ApplicationCable::Channel
   def subscribed
-    reject and return unless current_user
+    account_id = subscription_account_id
+    reject and return unless account_id
 
-    stream_from "messages_channel_#{current_user.account_id}"
+    stream_from "messages_channel_#{account_id}"
   end
 
   def unsubscribed

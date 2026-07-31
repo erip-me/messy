@@ -88,12 +88,10 @@ export function SignupPage() {
         },
       });
     } catch (err: any) {
-      const msg = err.response?.data?.error || 'Failed to create account';
-      if (err.response?.status === 409) {
-        toast.error(msg, { duration: 5000 });
-      } else {
-        toast.error(msg);
-      }
+      // No 409 branch: /signup answers the same whether or not the address is
+      // already registered, so it can't be used to enumerate accounts. An
+      // existing owner is told by email instead.
+      toast.error(err.response?.data?.error || 'Failed to create account');
     } finally {
       setIsLoading(false);
     }

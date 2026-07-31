@@ -35,6 +35,8 @@ Rails.application.routes.draw do
   resources :accounts do
     member do
       patch :onboarding
+      post :accept_invitation
+      delete :decline_invitation
     end
   end
 
@@ -46,6 +48,11 @@ Rails.application.routes.draw do
   end
   resources :users do
     get :me, on: :collection
+    # Declared on the collection so they resolve ahead of /users/:id.
+    collection do
+      get    'invitations',     to: 'users#invitations'
+      delete 'invitations/:id', to: 'users#revoke_invitation'
+    end
   end
 
   resources :integrations do

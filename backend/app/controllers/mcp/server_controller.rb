@@ -66,7 +66,9 @@ module Mcp
     def tools_list_result
       tools = ToolRegistry.visible_to(
         scopes: current_mcp_grant.scopes,
-        admin: current_mcp_grant.user.account_admin?
+        # Admin-ness is per-workspace, and a grant is issued for one workspace —
+        # so ask about that one, not the user's default.
+        admin: current_mcp_grant.user.account_admin?(current_mcp_grant.account)
       )
       { tools: tools.map(&:definition) }
     end
@@ -114,7 +116,7 @@ module Mcp
     end
 
     def tool_visible?(tool, grant)
-      grant.scopes.include?(tool.scope) && (grant.user.account_admin? || !tool.admin?)
+      grant.scopes.include?(tool.scope) && (grant.user.account_admin?(grant.account) || !tool.admin?)
     end
 
     def dispatcher(grant)

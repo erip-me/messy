@@ -2,6 +2,8 @@ import axios from 'axios';
 import { appSettings } from './constants';
 import { store } from '../store';
 import { logout, setCredentials } from '../store/auth-slice';
+import { clearEnvironment } from '../store/environment-slice';
+import { clearWorkspace } from '../store/workspace-slice';
 
 const request = axios.create({
   baseURL: appSettings.apiBaseUrl,
@@ -48,6 +50,12 @@ request.interceptors.request.use((config) => {
     // Keep localStorage in sync
     localStorage.setItem('messy_token', token);
   }
+  const activeWorkspaceId =
+    store.getState().workspace?.activeWorkspaceId?.toString() ||
+    localStorage.getItem('messy_active_workspace');
+  if (activeWorkspaceId) {
+    config.headers['X-Account-Id'] = activeWorkspaceId;
+  }
   const activeEnvId =
     store.getState().environment?.activeEnvironmentId?.toString() ||
     localStorage.getItem('messy_active_env');
@@ -66,6 +74,25 @@ request.interceptors.response.use(
     return response;
   },
   (error) => {
+    // A stale workspace/environment selection (switched workspace, or removed
+    // from one) would otherwise wedge every request. Clear the offending
+    // selection and retry once so the app self-heals instead of erroring out.
+    const code = error.response?.data?.code;
+    if (error.response?.status === 403 && !error.config?.__retriedAfterScopeReset) {
+      if (code === 'unknown_environment') {
+        store.dispatch(clearEnvironment());
+      } else if (code === 'unknown_workspace') {
+        store.dispatch(clearWorkspace());
+        store.dispatch(clearEnvironment());
+      }
+      if (code === 'unknown_environment' || code === 'unknown_workspace') {
+        const retryConfig = { ...error.config, __retriedAfterScopeReset: true };
+        delete retryConfig.headers?.['X-Environment-Id'];
+        if (code === 'unknown_workspace') delete retryConfig.headers?.['X-Account-Id'];
+        return request(retryConfig);
+      }
+    }
+
     const isAuthPage = window.location.pathname.startsWith('/login') ||
                        window.location.pathname.startsWith('/validate');
     if (error.response?.status === 401 && !isAuthPage) {

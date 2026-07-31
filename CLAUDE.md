@@ -20,6 +20,32 @@ messy/
 
 `backend/` and `frontend/` have their own CLAUDE.md with component-specific guidance.
 
+## Workspaces (naming)
+
+The tenant object is called a **workspace** in the UI, a **tenant** conceptually, and
+`Account` / `account_id` in the database and internal code. Only user-facing language uses
+"workspace" — there is no `workspaces` table and no plan to rename the ~40 `account_id` FKs.
+
+- One `User` row per person, with many `account_memberships` — that join table (not
+  `users.account_id`) is what grants access, and `role` on it is **per workspace**.
+  `users.account_id` is only the default/last-used workspace pointer; never authorize
+  against it.
+- A membership grants access only once `accepted_at` is set. A NULL one is an
+  **invitation**: a workspace admin can name any existing address, but only that person
+  turns it into access (`POST /accounts/:id/accept_invitation`). Until they do, they are
+  absent from `Account#users` and nothing about them is disclosed to the workspace — so
+  build lists off `member_of?` / the `accepted` scope, never off a bare membership row.
+  Creating a membership in code without `accepted_at:` creates an invitation, not a
+  member; that is the easy mistake here.
+- `users.email` is **globally unique on purpose**: `MagicLinksController` looks users up by
+  bare email, so two rows sharing one would be a silent wrong-tenant login.
+- Clients pick a workspace per request with `X-Account-Id` (WebSockets: an `account_id`
+  socket param). It is always re-verified against membership — a client-supplied id is a
+  request, never authorization. A non-member id is a 403, never a fallback.
+- In user-facing copy, "account" still means a person's **login** (e.g. "Don't have an
+  account?" on the sign-in page). Don't find-replace it. The super-admin surface says
+  "Tenant" and stays that way.
+
 ## Development
 
 ### Git Hooks
@@ -54,6 +80,24 @@ with rich data and fake provider credentials — useful for screenshots and UI w
 ## Testing
 
 Backend tests: `cd backend && bin/rails test`. The pre-push hook runs the suite.
+
+### End-to-end: `bin/e2e`
+
+Drives signup and the workspace-invitation flow against a real running server on a
+throwaway database, booting and tearing down both itself. Exits non-zero on failure.
+
+```bash
+bin/e2e              # run it
+E2E_PORT=5100 bin/e2e  # if the default 5099 is taken
+E2E_KEEP=1 bin/e2e     # leave the server and DB up afterwards to poke at
+```
+
+It exists for what the minitest suite structurally cannot see: the suite runs in the
+test env, so env-specific branches (like the dev-only magic-link token in
+`SignupsController`) are invisible to it, and it bypasses the middleware stack, so
+Rack::Attack throttles and real routing go unexercised. **Anything provable in an
+ordinary integration test belongs in `test/`, not here** — this is slow and needs
+Postgres.
 
 ### Backend schema dumps must stay in sync (important)
 
