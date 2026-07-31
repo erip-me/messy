@@ -15,6 +15,21 @@ class UserMailer < ApplicationMailer
     mail(to: @user.email, subject: 'Verify your Messy account')
   end
 
+  # Someone submitted /signup with an address that already has a login. That
+  # endpoint answers identically either way, so this is how the real owner — the
+  # only person entitled to know — finds out.
+  #
+  # Deliberately does NOT mint a magic-link token: a stranger triggers this
+  # email, and generating a live login link on their say-so would let them
+  # rotate the owner's token at will. The sign-in page issues its own.
+  def existing_account_notice
+    @user = params[:user]
+    frontend_url = ENV.fetch('FRONTEND_URL', 'http://localhost:5174')
+    @login_link = "#{frontend_url}/login"
+
+    mail(to: @user.email, subject: 'You already have a Messy account')
+  end
+
   def invitation_email
     @user = params[:user]
     @inviter = params[:inviter]
