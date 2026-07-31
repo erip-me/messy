@@ -50,13 +50,13 @@ module Mcp
           return render json: { redirect_to: redirect_with(redirect_uri, error: "access_denied", state: params[:state]) }
         end
 
-        environment = current_user.account.environments.find_by(id: params[:environment_id])
+        environment = resolved_account.environments.find_by(id: params[:environment_id])
         return render_oauth_error("invalid_request", "A valid environment must be selected") unless environment
 
         scopes = Mcp::Scopes.parse(params[:scope])
 
         grant = McpGrant.active.find_or_initialize_by(
-          account: current_user.account,
+          account: resolved_account,
           user: current_user,
           mcp_client: client,
           environment: environment

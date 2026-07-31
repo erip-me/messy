@@ -61,7 +61,7 @@ export function UsersIndexPage() {
 
   const handleDeleteUser = async (userId: number, userName: string) => {
     if (userId === Number(currentUser?.id)) {
-      toast.error('You cannot delete your own account');
+      toast.error('You cannot remove yourself from this workspace');
       return;
     }
 

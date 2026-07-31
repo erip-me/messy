@@ -14,13 +14,19 @@ module ApiAuthentication
     if api_key.present? && valid_api_key?(api_key)
       return
     elsif current_user
-      @account = current_user.account_id ? Account.find_by(id: current_user.account_id) : nil
+      # Membership-checked; raises WorkspaceForbidden on a non-member X-Account-Id.
+      @account = resolved_account
       if @account
         env_id = request.headers['X-Environment-Id']
-        @environment = if env_id.present?
-                         Environment.where(account_id: @account.id, id: env_id).first
-                       end
-        @environment ||= Environment.where(account_id: @account.id).first
+        if env_id.present?
+          # A named-but-unresolvable environment is an error, not a cue to pick
+          # another one: silently falling through would show the caller a
+          # different environment's data under the label they selected.
+          @environment = Environment.where(account_id: @account.id, id: env_id).first
+          raise ApplicationController::EnvironmentForbidden unless @environment
+        else
+          @environment = Environment.where(account_id: @account.id).first
+        end
       end
       return
     end

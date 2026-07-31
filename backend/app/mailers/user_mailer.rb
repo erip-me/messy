@@ -21,7 +21,21 @@ class UserMailer < ApplicationMailer
     frontend_url = ENV.fetch('FRONTEND_URL', 'http://localhost:5174')
     @accept_link = "#{frontend_url}/validate/#{@user.magic_link_token}"
 
-    mail(to: @user.email, subject: "You've been invited to #{@user.account.name} on Messy")
+    mail(to: @user.email, subject: "You've been invited to the #{@user.account.name} workspace on Messy")
+  end
+
+  # Someone who already has a Messy login has been added to another workspace.
+  # Deliberately does NOT mint a magic-link token: they may well be signed in
+  # right now, and rotating it would invalidate that session. The link just deep-
+  # links to the workspace, which the switcher picks up after normal auth.
+  def workspace_invitation_email
+    @user = params[:user]
+    @inviter = params[:inviter]
+    @account = params[:account]
+    frontend_url = ENV.fetch('FRONTEND_URL', 'http://localhost:5174')
+    @workspace_link = "#{frontend_url}/?workspace=#{@account.id}"
+
+    mail(to: @user.email, subject: "You've been added to #{@account.name} on Messy")
   end
 
   def conversation_assigned

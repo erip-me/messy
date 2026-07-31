@@ -4,7 +4,7 @@ class CustomersController < ApplicationController
   before_action :authenticate_user!
 
   def index
-    customers = current_user.account.customers
+    customers = resolved_account.customers
     if params[:q].present?
       q = "%#{params[:q]}%"
       customers = customers.where('email ILIKE ? OR first_name ILIKE ? OR last_name ILIKE ?', q, q, q)
@@ -21,13 +21,13 @@ class CustomersController < ApplicationController
   end
 
   def show
-    customer = current_user.account.customers.find(params[:id])
+    customer = resolved_account.customers.find(params[:id])
 
     render json: { customer: CustomerDetailResource.new(customer).to_h }
   end
 
   def export
-    customers = current_user.account.customers
+    customers = resolved_account.customers
     if params[:q].present?
       q = "%#{params[:q]}%"
       customers = customers.where('email ILIKE ? OR first_name ILIKE ? OR last_name ILIKE ?', q, q, q)
@@ -58,7 +58,7 @@ class CustomersController < ApplicationController
   end
 
   def recent_activities
-    activities = current_user.account.customer_activities
+    activities = resolved_account.customer_activities
       .includes(:customer, :environment)
       .order(created_at: :desc)
       .limit(20)
@@ -83,13 +83,13 @@ class CustomersController < ApplicationController
   end
 
   def destroy
-    customer = current_user.account.customers.find(params[:id])
+    customer = resolved_account.customers.find(params[:id])
     customer.destroy
     render json: { message: 'Customer deleted' }
   end
 
   def toggle_unsubscribe
-    customer = current_user.account.customers.find(params[:id])
+    customer = resolved_account.customers.find(params[:id])
     channel = params[:channel].to_s
     unless Campaign::CHANNELS.include?(channel)
       return render json: { error: 'Invalid channel' }, status: :unprocessable_entity
@@ -105,7 +105,7 @@ class CustomersController < ApplicationController
   end
 
   def toggle_category_unsubscribe
-    customer = current_user.account.customers.find(params[:id])
+    customer = resolved_account.customers.find(params[:id])
     category = params[:category].presence || Customer::MARKETING_CATEGORY
 
     if customer.unsubscribed_from_category?(category)
@@ -118,7 +118,7 @@ class CustomersController < ApplicationController
   end
 
   def unsubscribe_all
-    customer = current_user.account.customers.find(params[:id])
+    customer = resolved_account.customers.find(params[:id])
     all_unsubscribed = Campaign::CHANNELS.all? { |ch| customer.unsubscribed_from?(ch) }
 
     if all_unsubscribed

@@ -160,7 +160,7 @@ export function McpIndexPage() {
             <div>
               <CardTitle className="text-base">Model Context Protocol</CardTitle>
               <CardDescription>
-                Let AI agents (Claude, OpenAI, and any MCP client) act on this account through a
+                Let AI agents (Claude, OpenAI, and any MCP client) act on this workspace through a
                 secure OAuth connection. Turn this off to instantly block every agent.
               </CardDescription>
             </div>
@@ -222,7 +222,7 @@ export function McpIndexPage() {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle className="text-base">Connections</CardTitle>
-          <CardDescription>Agents that have connected to this account.</CardDescription>
+          <CardDescription>Agents that have connected to this workspace.</CardDescription>
         </CardHeader>
         <CardContent>
           {connections.length === 0 ? (

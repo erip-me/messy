@@ -11,3 +11,6 @@ $.user.operator_profile.online: Boolean
 $.user.operator_profile.public_name: String
 $.user.role: String
 $.user.updated_at: String
+$.workspaces[].id: Integer
+$.workspaces[].name: String
+$.workspaces[].role: String

@@ -90,7 +90,7 @@ class IntegrationsController < ApplicationController
   private
 
     def set_account
-      @account = current_user.account
+      @account = resolved_account
     end
 
     def set_integration

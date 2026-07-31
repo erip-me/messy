@@ -40,7 +40,7 @@ class OperatorProfilesController < ApplicationController
     end
 
     # Broadcast presence update so widgets see the change immediately
-    OperatorPresenceChannel.broadcast_presence_for(current_user.account_id)
+    OperatorPresenceChannel.broadcast_presence_for(resolved_account&.id)
 
     render json: { operator_profile: OperatorProfileResource.new(profile).to_h }
   end

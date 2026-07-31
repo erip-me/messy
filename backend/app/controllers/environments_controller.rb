@@ -125,7 +125,7 @@ class EnvironmentsController < ApplicationController
   private
 
     def set_account
-      @account = current_user.account
+      @account = resolved_account
     end
 
     # Use callbacks to share common setup or constraints between actions.

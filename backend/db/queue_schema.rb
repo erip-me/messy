@@ -10,9 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_08_130000) do
+ActiveRecord::Schema[8.0].define(version: 2026_07_31_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "account_memberships", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "account_id", null: false
+    t.integer "role", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_account_memberships_on_account_id"
+    t.index ["user_id", "account_id"], name: "index_account_memberships_on_user_and_account", unique: true
+    t.index ["user_id"], name: "index_account_memberships_on_user_id"
+  end
 
   create_table "accounts", force: :cascade do |t|
     t.string "name", null: false
@@ -574,7 +585,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_08_130000) do
     t.boolean "auto_reply_enabled", default: true, null: false
     t.text "auto_reply_template"
     t.integer "auto_close_days"
-    t.jsonb "notification_events", default: {"ticket_closed" => true, "ticket_created" => true, "ticket_assigned" => true, "ticket_reopened" => true, "ticket_note_added" => false, "ticket_reply_from_operator" => true}
+    t.jsonb "notification_events", default: {"ticket_closed"=>true, "ticket_created"=>true, "ticket_assigned"=>true, "ticket_reopened"=>true, "ticket_note_added"=>false, "ticket_reply_from_operator"=>true}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "email_address"], name: "index_mailboxes_on_account_id_and_email_address", unique: true
@@ -784,7 +795,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_08_130000) do
     t.bigint "account_id", null: false
     t.string "name", null: false
     t.text "description"
-    t.jsonb "conditions", default: {"operator" => "and", "conditions" => []}
+    t.jsonb "conditions", default: {"operator"=>"and", "conditions"=>[]}
     t.integer "customer_count", default: 0
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
@@ -1078,6 +1089,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_08_130000) do
     t.index ["magic_link_token"], name: "index_users_on_magic_link_token"
   end
 
+  add_foreign_key "account_memberships", "accounts"
+  add_foreign_key "account_memberships", "users"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "campaign_deliveries", "accounts"

@@ -20,6 +20,25 @@ messy/
 
 `backend/` and `frontend/` have their own CLAUDE.md with component-specific guidance.
 
+## Workspaces (naming)
+
+The tenant object is called a **workspace** in the UI, a **tenant** conceptually, and
+`Account` / `account_id` in the database and internal code. Only user-facing language uses
+"workspace" — there is no `workspaces` table and no plan to rename the ~40 `account_id` FKs.
+
+- One `User` row per person, with many `account_memberships` — that join table (not
+  `users.account_id`) is what grants access, and `role` on it is **per workspace**.
+  `users.account_id` is only the default/last-used workspace pointer; never authorize
+  against it.
+- `users.email` is **globally unique on purpose**: `MagicLinksController` looks users up by
+  bare email, so two rows sharing one would be a silent wrong-tenant login.
+- Clients pick a workspace per request with `X-Account-Id` (WebSockets: an `account_id`
+  socket param). It is always re-verified against membership — a client-supplied id is a
+  request, never authorization. A non-member id is a 403, never a fallback.
+- In user-facing copy, "account" still means a person's **login** (e.g. "Don't have an
+  account?" on the sign-in page). Don't find-replace it. The super-admin surface says
+  "Tenant" and stays that way.
+
 ## Development
 
 ### Git Hooks

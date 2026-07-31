@@ -1,0 +1,17 @@
+# Membership is what grants workspace access — users.account_id is only the
+# default-workspace pointer. Every user fixture needs a row here or it can't see
+# its own workspace.
+admin_acme:
+  user: admin
+  account: acme
+  role: admin
+
+regular_acme:
+  user: regular
+  account: acme
+  role: member
+
+other_user_other_co:
+  user: other_user
+  account: other_co
+  role: admin

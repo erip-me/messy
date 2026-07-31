@@ -18,7 +18,7 @@ class FoldersController < ApplicationController
   # POST /folders
   def create
     @folder = @environment.folders.build(folder_params)
-    @folder.account = current_user.account
+    @folder.account = resolved_account
 
     if @folder.parent_folder_id.present?
       unless @environment.folders.active.exists?(id: @folder.parent_folder_id)
@@ -84,7 +84,7 @@ class FoldersController < ApplicationController
   private
 
   def set_account
-    @account = current_user.account
+    @account = resolved_account
   end
 
   def set_folder

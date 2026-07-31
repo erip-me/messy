@@ -93,7 +93,7 @@ export function OauthConsentPage() {
             <CardTitle className="text-lg">Authorize access</CardTitle>
           </div>
           <CardDescription>
-            An application wants to connect to <span className="font-medium">{account?.name}</span>{" "}
+            An application wants to connect to the workspace <span className="font-medium">{account?.name}</span>{" "}
             on Messy using the Model Context Protocol.
           </CardDescription>
         </CardHeader>

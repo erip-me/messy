@@ -22,7 +22,9 @@ class SignupsController < ApplicationController
 
     ActiveRecord::Base.transaction do
       account = Account.create!(name: account_name, plan: 'trial', trial_ends_at: 14.days.from_now, status: 'pending_verification')
-      # The signing-up user owns the new account, so they are its first admin.
+      # The signing-up user owns the new workspace, so they are its first admin.
+      # `account:` sets their default workspace and User#ensure_default_membership
+      # grants the matching admin membership.
       user    = User.create!(account: account, name: name, email: email, role: :admin)
       user.generate_magic_link_token!
 

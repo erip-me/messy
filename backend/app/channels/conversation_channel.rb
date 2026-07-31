@@ -54,7 +54,9 @@ class ConversationChannel < ApplicationCable::Channel
 
   def find_conversation
     if current_user
-      Conversation.where(account_id: current_user.account_id).find_by(id: params[:conversation_id])
+      scope_account_id = subscription_account_id
+      return nil unless scope_account_id
+      Conversation.where(account_id: scope_account_id).find_by(id: params[:conversation_id])
     elsif visitor_token && account_id
       Conversation.find_by(account_id: account_id, visitor_token: visitor_token, id: params[:conversation_id])
     end

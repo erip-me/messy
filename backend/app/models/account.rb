@@ -1,3 +1,6 @@
+# The tenant. Called a **workspace** everywhere in the UI — the table, columns and
+# internal code keep the `account` name (see CLAUDE.md § Workspaces). "Account" in
+# user-facing copy means a person's login, which is `User`, not this.
 class Account < ApplicationRecord
   # Billing plans. Paid plans map to a Stripe Price via env vars (set with the
   # test/live keys). `free` is the open-source / self-host plan (no subscription).
@@ -67,7 +70,19 @@ class Account < ApplicationRecord
   has_many :csv_imports, dependent: :destroy
   has_many :customers, dependent: :destroy
   has_many :environments, dependent: :destroy
-  has_many :users, dependent: :destroy
+
+  has_many :account_memberships, dependent: :destroy
+  # The workspace's users, via membership. NOTE: this is a has_many :through, so
+  # you cannot `.new`/`.create` through it — add people with
+  # AccountMembership.create!(user:, account:) instead.
+  has_many :users, through: :account_memberships, source: :user
+  # Users whose *default* (last-used) workspace is this account. Distinct from
+  # #users: a member of three workspaces defaults into only one of them.
+  has_many :default_for_users, class_name: "User", inverse_of: :account, dependent: nil
+
+  # Runs before account_memberships are destroyed, so the remaining memberships
+  # are still visible when picking a new default workspace.
+  before_destroy :rehome_default_workspace_users, prepend: true
   has_one :mcp_setting, dependent: :destroy
   has_many :mcp_grants, dependent: :destroy
   has_many :mcp_request_logs, dependent: :destroy
@@ -163,6 +178,27 @@ class Account < ApplicationRecord
       "https://#{tracking_domain}"
     else
       ENV.fetch('API_URL', 'http://localhost:3300')
+    end
+  end
+
+  private
+
+  # Deleting a workspace must not delete people who also work in other
+  # workspaces. Point them at another workspace they belong to; only destroy the
+  # ones for whom this was the last (matching the pre-membership behaviour of
+  # `has_many :users, dependent: :destroy`).
+  def rehome_default_workspace_users
+    default_for_users.find_each do |user|
+      next_account_id = user.account_memberships
+                            .where.not(account_id: id)
+                            .order(:created_at)
+                            .pick(:account_id)
+
+      if next_account_id
+        user.update_column(:account_id, next_account_id)
+      else
+        user.destroy!
+      end
     end
   end
 end

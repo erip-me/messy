@@ -2,9 +2,10 @@ import { useEffect, useState, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
-import { logout } from '@/store/auth-slice';
+import { logout, setCredentials } from '@/store/auth-slice';
 import nameLogo from '@/assets/nameLogo.png';
-import { setEnvironments, setActiveEnvironment } from '@/store/environment-slice';
+import { setEnvironments, setActiveEnvironment, clearEnvironment } from '@/store/environment-slice';
+import { setWorkspaces, setActiveWorkspace } from '@/store/workspace-slice';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import request from '@/utils/request';
@@ -104,6 +105,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const user = useSelector((state: RootState) => state.auth.user);
   const environments = useSelector((state: RootState) => state.environment.environments);
   const activeEnvironmentId = useSelector((state: RootState) => state.environment.activeEnvironmentId);
+  const workspaces = useSelector((state: RootState) => state.workspace.workspaces);
+  const activeWorkspaceId = useSelector((state: RootState) => state.workspace.activeWorkspaceId);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -142,6 +145,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     setExpanded((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
+  // Re-fetched whenever the workspace changes: environments belong to a workspace,
+  // so the previous workspace's list must not linger in the picker.
   useEffect(() => {
     const fetchEnvironments = async () => {
       try {
@@ -153,7 +158,48 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       }
     };
     fetchEnvironments();
+  }, [dispatch, activeWorkspaceId]);
+
+  useEffect(() => {
+    const fetchWorkspaces = async () => {
+      try {
+        const res = await request.get('/users/me');
+        const list = res.data?.workspaces || [];
+        dispatch(setWorkspaces(list));
+
+        // Deep link from the "you've been added to a workspace" email. Only honour
+        // it if they're actually a member — the server would reject it anyway, but
+        // this avoids a pointless failed round trip.
+        const requested = Number(new URLSearchParams(window.location.search).get('workspace'));
+        if (requested && list.some((w: { id: number }) => w.id === requested)) {
+          handleWorkspaceChange(requested);
+        }
+      } catch (e) {
+        // silent
+      }
+    };
+    fetchWorkspaces();
   }, [dispatch]);
+
+  // The active workspace decides which account the app is showing, so keep
+  // auth.account in step — ProtectedRoute and the billing/settings pages read it.
+  useEffect(() => {
+    if (!activeWorkspaceId || !user) return;
+    request
+      .get('/accounts')
+      .then((res) => dispatch(setCredentials({ user, account: res.data })))
+      .catch(() => {});
+  }, [activeWorkspaceId]);
+
+  // Environments are workspace-scoped, so drop the current selection before the
+  // new workspace's list arrives — otherwise the next request carries an
+  // environment id the new workspace doesn't own.
+  const handleWorkspaceChange = (id: number) => {
+    if (id === activeWorkspaceId) return;
+    dispatch(clearEnvironment());
+    dispatch(setActiveWorkspace(id));
+    navigate('/');
+  };
 
   const handleLogout = () => {
     dispatch(logout());
@@ -304,6 +350,27 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             <X className="h-5 w-5" />
           </button>
         </div>
+        {/* Only shown to people who actually belong to more than one workspace,
+            so single-workspace users see no change. */}
+        {workspaces.length > 1 && (
+          <div className="mb-2">
+            <Select
+              value={String(activeWorkspaceId || '')}
+              onValueChange={(val) => handleWorkspaceChange(Number(val))}
+            >
+              <SelectTrigger className="bg-card text-sm h-9 transition-colors">
+                <SelectValue placeholder="Select workspace" />
+              </SelectTrigger>
+              <SelectContent>
+                {workspaces.map((ws) => (
+                  <SelectItem key={ws.id} value={String(ws.id)}>
+                    {ws.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         {environments.length > 0 && (
           <Select
             value={String(activeEnvironmentId || '')}

@@ -15,10 +15,10 @@
 <body>
   <div class="card">
     <div class="logo">Messy</div>
-    <h1>You've been invited!</h1>
-    <p><%= @inviter.name %> has invited you to the <strong><%= @user.account.name %></strong> workspace on Messy. Click the button below to accept and set up your login.</p>
-    <a href="<%= @accept_link %>" class="btn" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:9999px;font-size:15px;font-weight:600;">Accept Invitation</a>
-    <p class="note">This link expires in 30 minutes. If you weren't expecting this invitation, you can ignore this email.</p>
+    <h1>You've been added to a new workspace</h1>
+    <p><%= @inviter.name %> added you to <strong><%= @account.name %></strong> on Messy. Sign in as usual with <%= @user.email %> and pick it from the workspace switcher — your existing workspaces are unchanged.</p>
+    <a href="<%= @workspace_link %>" class="btn" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:9999px;font-size:15px;font-weight:600;">Open <%= @account.name %></a>
+    <p class="note">If you weren't expecting this, you can ignore this email or ask <%= @inviter.name %> to remove you from the workspace.</p>
   </div>
 </body>
 </html>

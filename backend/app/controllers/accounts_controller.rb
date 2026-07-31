@@ -1,11 +1,37 @@
 class AccountsController < ApplicationController
   before_action :authenticate_user!
-  before_action :set_account
+  before_action :set_account, except: %i[create]
   before_action :require_account_admin!, only: %i[update onboarding]
 
   # GET /accounts
   def index
     render json: AccountResource.new(@account).serialize
+  end
+
+  # POST /accounts — create an additional workspace for the signed-in user.
+  #
+  # The unauthenticated /signup path still refuses an email that already exists
+  # (one login per person); this is how someone who already has a login gets a
+  # second workspace. They become its first admin, so no invite is involved and
+  # nobody else's workspace is touched.
+  def create
+    account = nil
+
+    ActiveRecord::Base.transaction do
+      account = Account.create!(
+        name: params.require(:name),
+        plan: 'trial',
+        trial_ends_at: 14.days.from_now,
+        # Already an authenticated, verified user — nothing to verify, and no
+        # first-run onboarding to repeat. Without onboarding_completed_at the SPA's
+        # ProtectedRoute would bounce them into the signup wizard on switch.
+        status: 'active',
+        onboarding_completed_at: Time.current
+      )
+      AccountMembership.create!(user: current_user, account: account, role: :admin)
+    end
+
+    render json: AccountResource.new(account).serialize, status: :created
   end
 
   # GET /accounts/1
@@ -42,7 +68,7 @@ class AccountsController < ApplicationController
   private
 
     def set_account
-      @account = current_user.account
+      @account = resolved_account
     end
 
     def account_params
