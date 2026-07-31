@@ -72,10 +72,17 @@ class Account < ApplicationRecord
   has_many :environments, dependent: :destroy
 
   has_many :account_memberships, dependent: :destroy
-  # The workspace's users, via membership. NOTE: this is a has_many :through, so
-  # you cannot `.new`/`.create` through it — add people with
-  # AccountMembership.create!(user:, account:) instead.
-  has_many :users, through: :account_memberships, source: :user
+  has_many :accepted_memberships, -> { accepted }, class_name: "AccountMembership",
+           inverse_of: :account, dependent: nil
+  # The workspace's users, via *accepted* membership. Someone who has been
+  # invited but hasn't accepted is not one of them, and must not show up here —
+  # this association is what exposes names, last_login_at and super-admin status
+  # to a workspace admin.
+  #
+  # NOTE: this is a has_many :through, so you cannot `.new`/`.create` through it
+  # — add people with AccountMembership.create!(user:, account:, accepted_at:)
+  # instead. Omitting accepted_at creates an *invitation*, which grants nothing.
+  has_many :users, through: :accepted_memberships, source: :user
   # Users whose *default* (last-used) workspace is this account. Distinct from
   # #users: a member of three workspaces defaults into only one of them.
   has_many :default_for_users, class_name: "User", inverse_of: :account, dependent: nil
@@ -189,7 +196,10 @@ class Account < ApplicationRecord
   # `has_many :users, dependent: :destroy`).
   def rehome_default_workspace_users
     default_for_users.find_each do |user|
+      # Only somewhere they actually belong — rehoming onto an invitation they
+      # never accepted would grant access by the back door.
       next_account_id = user.account_memberships
+                            .accepted
                             .where.not(account_id: id)
                             .order(:created_at)
                             .pick(:account_id)

@@ -78,7 +78,12 @@ class ApplicationController < ActionController::API
         raise WorkspaceForbidden unless account && user.member_of?(account)
         account
       else
-        user.account
+        # users.account_id is only a pointer and can go stale — removed from that
+        # workspace, or an invitation that was never accepted. Check it like any
+        # other candidate rather than trusting the column, and fall back to a
+        # workspace they do belong to.
+        default = user.account
+        user.member_of?(default) ? default : user.accounts.first
       end
     end
   end

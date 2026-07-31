@@ -1,17 +1,23 @@
 # Membership is what grants workspace access — users.account_id is only the
 # default-workspace pointer. Every user fixture needs a row here or it can't see
 # its own workspace.
+#
+# accepted_at must be set. A NULL one is an invitation nobody has accepted yet,
+# which grants nothing — tests that want that state create it explicitly.
 admin_acme:
   user: admin
   account: acme
   role: admin
+  accepted_at: <%= Time.current.to_fs(:db) %>
 
 regular_acme:
   user: regular
   account: acme
   role: member
+  accepted_at: <%= Time.current.to_fs(:db) %>
 
 other_user_other_co:
   user: other_user
   account: other_co
   role: admin
+  accepted_at: <%= Time.current.to_fs(:db) %>

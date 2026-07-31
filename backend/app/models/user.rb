@@ -9,7 +9,11 @@ class User < ApplicationRecord
 
   # A user can belong to several accounts ("workspaces" in the UI).
   has_many :account_memberships, dependent: :destroy
-  has_many :accounts, through: :account_memberships
+  # Accepted only: a pending row is an invitation someone else created, and it
+  # must not read as belonging to a workspace until this person says so.
+  has_many :accepted_memberships, -> { accepted }, class_name: "AccountMembership",
+           inverse_of: :user, dependent: nil
+  has_many :accounts, through: :accepted_memberships, source: :account
 
   # Legacy account-level role, superseded by AccountMembership#role (a user can
   # be an admin of one workspace and a member of another). Retained so the
@@ -47,8 +51,12 @@ class User < ApplicationRecord
   # admins are deliberately NOT auto-members: their cross-account reach is the
   # separate /admin surface, and widening it here would turn every workspace
   # into an implicit one for them.
+  #
+  # An unaccepted invitation is NOT membership. A workspace admin can name
+  # anyone; only the invitee turns that into access. This is the single gate
+  # every request and socket goes through, so pending must fail here.
   def member_of?(account)
-    membership_for(account).present?
+    membership_for(account)&.accepted? || false
   end
 
   # Role within a specific workspace. Falls back to the legacy users.role only
@@ -87,6 +95,10 @@ class User < ApplicationRecord
 
     account_memberships.find_or_create_by!(account_id: account_id) do |membership|
       membership.role = role
+      # Accepted outright: this is either a workspace they just created or one
+      # they can only reach by clicking a magic link sent to their own address.
+      # Consent is already established, so there is nothing to accept.
+      membership.accepted_at = Time.current
     end
   end
 end

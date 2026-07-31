@@ -13,7 +13,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Badge } from '@/components/ui/badge';
 import { PageSkeleton } from '@/components/ui/table-skeleton';
 import { RootState } from '@/store';
-import { getUsers, inviteUser, deleteUser, updateUserRole, User, UserRole, InviteUserRequest } from '@/api/users';
+import {
+  getUsers, inviteUser, deleteUser, updateUserRole, getPendingInvitations, revokeInvitation,
+  isPendingInvite, User, UserRole, InviteUserRequest, WorkspaceInvitation,
+} from '@/api/users';
 import toast from 'react-hot-toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useActiveEnvironment } from '@/hooks/useActiveEnvironment';
@@ -39,6 +42,12 @@ export function UsersIndexPage() {
     { initialData: [], errorMessage: 'Failed to load users' },
   );
 
+  const { data: invitations = [], setData: setInvitations } = useResource(
+    getPendingInvitations,
+    [activeEnvId],
+    { initialData: [], errorMessage: 'Failed to load invitations' },
+  );
+
   const handleInviteUser = async () => {
     if (!inviteForm.name.trim() || !inviteForm.email.trim()) {
       toast.error('Please fill in all fields');
@@ -47,15 +56,40 @@ export function UsersIndexPage() {
 
     try {
       setInviting(true);
-      const newUser = await inviteUser(inviteForm);
-      setUsers(prev => [newUser, ...(prev ?? [])]);
+      const result = await inviteUser(inviteForm);
+      // Someone who already has a Messy login only gets an invitation — they
+      // aren't a member until they accept, so they don't join the list yet.
+      if (isPendingInvite(result)) {
+        setInvitations(await getPendingInvitations());
+        toast.success('Invitation sent — they join once they accept');
+      } else {
+        setUsers(prev => [result, ...(prev ?? [])]);
+        toast.success('User invited successfully');
+      }
       setInviteForm({ name: '', email: '', role: 'member' });
       setInviteDialogOpen(false);
-      toast.success('User invited successfully');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to invite user');
     } finally {
       setInviting(false);
+    }
+  };
+
+  const handleRevokeInvitation = async (invitation: WorkspaceInvitation) => {
+    const ok = await confirm({
+      title: 'Withdraw invitation',
+      description: `${invitation.email} will no longer be able to join this workspace.`,
+      confirmLabel: 'Withdraw',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+
+    try {
+      await revokeInvitation(invitation.id);
+      setInvitations(prev => (prev ?? []).filter(i => i.id !== invitation.id));
+      toast.success('Invitation withdrawn');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to withdraw invitation');
     }
   };
 
@@ -382,6 +416,42 @@ export function UsersIndexPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* People who already had a Messy login. They join once they accept, so
+          until then this is all the workspace knows about them: the address. */}
+      {isAdmin && invitations.length > 0 && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              Pending invitations
+              <Badge variant="outline">{invitations.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border">
+              {invitations.map((invitation) => (
+                <div key={invitation.id} className="flex items-center justify-between gap-3 px-6 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{invitation.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Invited {format(new Date(invitation.created_at), 'd MMM yyyy')} · awaiting their acceptance
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant={invitation.role === 'admin' ? 'default' : 'secondary'}>
+                      {invitation.role === 'admin' ? 'Admin' : 'Member'}
+                    </Badge>
+                    <Button variant="ghost" size="sm" onClick={() => handleRevokeInvitation(invitation)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {ConfirmDialog}
     </div>

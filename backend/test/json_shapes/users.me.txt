@@ -1,3 +1,4 @@
+$.pending_workspaces[]: (empty)
 $.token: String
 $.user.account_id: Integer
 $.user.created_at: String

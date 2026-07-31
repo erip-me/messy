@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_31_090000) do
+ActiveRecord::Schema[8.0].define(version: 2026_07_31_190000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -20,6 +20,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_31_090000) do
     t.integer "role", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.datetime "accepted_at"
     t.index ["account_id"], name: "index_account_memberships_on_account_id"
     t.index ["user_id", "account_id"], name: "index_account_memberships_on_user_and_account", unique: true
     t.index ["user_id"], name: "index_account_memberships_on_user_id"
@@ -585,7 +586,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_31_090000) do
     t.boolean "auto_reply_enabled", default: true, null: false
     t.text "auto_reply_template"
     t.integer "auto_close_days"
-    t.jsonb "notification_events", default: {"ticket_closed"=>true, "ticket_created"=>true, "ticket_assigned"=>true, "ticket_reopened"=>true, "ticket_note_added"=>false, "ticket_reply_from_operator"=>true}
+    t.jsonb "notification_events", default: {"ticket_closed" => true, "ticket_created" => true, "ticket_assigned" => true, "ticket_reopened" => true, "ticket_note_added" => false, "ticket_reply_from_operator" => true}
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["account_id", "email_address"], name: "index_mailboxes_on_account_id_and_email_address", unique: true
@@ -795,7 +796,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_31_090000) do
     t.bigint "account_id", null: false
     t.string "name", null: false
     t.text "description"
-    t.jsonb "conditions", default: {"operator"=>"and", "conditions"=>[]}
+    t.jsonb "conditions", default: {"operator" => "and", "conditions" => []}
     t.integer "customer_count", default: 0
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

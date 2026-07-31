@@ -30,6 +30,13 @@ The tenant object is called a **workspace** in the UI, a **tenant** conceptually
   `users.account_id`) is what grants access, and `role` on it is **per workspace**.
   `users.account_id` is only the default/last-used workspace pointer; never authorize
   against it.
+- A membership grants access only once `accepted_at` is set. A NULL one is an
+  **invitation**: a workspace admin can name any existing address, but only that person
+  turns it into access (`POST /accounts/:id/accept_invitation`). Until they do, they are
+  absent from `Account#users` and nothing about them is disclosed to the workspace — so
+  build lists off `member_of?` / the `accepted` scope, never off a bare membership row.
+  Creating a membership in code without `accepted_at:` creates an invitation, not a
+  member; that is the easy mistake here.
 - `users.email` is **globally unique on purpose**: `MagicLinksController` looks users up by
   bare email, so two rows sharing one would be a silent wrong-tenant login.
 - Clients pick a workspace per request with `X-Account-Id` (WebSockets: an `account_id`

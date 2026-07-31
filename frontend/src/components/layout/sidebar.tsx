@@ -5,7 +5,8 @@ import { RootState } from '@/store';
 import { logout, setCredentials } from '@/store/auth-slice';
 import nameLogo from '@/assets/nameLogo.png';
 import { setEnvironments, setActiveEnvironment, clearEnvironment } from '@/store/environment-slice';
-import { setWorkspaces, setActiveWorkspace } from '@/store/workspace-slice';
+import { setWorkspaces, setPendingWorkspaces, setActiveWorkspace } from '@/store/workspace-slice';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import request from '@/utils/request';
@@ -106,6 +107,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const environments = useSelector((state: RootState) => state.environment.environments);
   const activeEnvironmentId = useSelector((state: RootState) => state.environment.activeEnvironmentId);
   const workspaces = useSelector((state: RootState) => state.workspace.workspaces);
+  const pendingWorkspaces = useSelector((state: RootState) => state.workspace.pendingWorkspaces);
   const activeWorkspaceId = useSelector((state: RootState) => state.workspace.activeWorkspaceId);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -160,26 +162,37 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     fetchEnvironments();
   }, [dispatch, activeWorkspaceId]);
 
-  useEffect(() => {
-    const fetchWorkspaces = async () => {
-      try {
-        const res = await request.get('/users/me');
-        const list = res.data?.workspaces || [];
-        dispatch(setWorkspaces(list));
+  const refreshWorkspaces = async () => {
+    const res = await request.get('/users/me');
+    dispatch(setWorkspaces(res.data?.workspaces || []));
+    dispatch(setPendingWorkspaces(res.data?.pending_workspaces || []));
+    return res.data;
+  };
 
-        // Deep link from the "you've been added to a workspace" email. Only honour
-        // it if they're actually a member — the server would reject it anyway, but
-        // this avoids a pointless failed round trip.
-        const requested = Number(new URLSearchParams(window.location.search).get('workspace'));
-        if (requested && list.some((w: { id: number }) => w.id === requested)) {
-          handleWorkspaceChange(requested);
-        }
-      } catch (e) {
-        // silent
-      }
-    };
-    fetchWorkspaces();
+  useEffect(() => {
+    // No deep link to honour: an invitation grants nothing until it's accepted,
+    // so the email just opens the app and the prompt below is always here.
+    refreshWorkspaces().catch(() => {});
   }, [dispatch]);
+
+  const handleAcceptInvite = async (id: number) => {
+    try {
+      await request.post(`/accounts/${id}/accept_invitation`);
+      await refreshWorkspaces();
+      handleWorkspaceChange(id);
+    } catch (e) {
+      // silent
+    }
+  };
+
+  const handleDeclineInvite = async (id: number) => {
+    try {
+      await request.delete(`/accounts/${id}/decline_invitation`);
+      dispatch(setPendingWorkspaces(pendingWorkspaces.filter((w) => w.id !== id)));
+    } catch (e) {
+      // silent
+    }
+  };
 
   // The active workspace decides which account the app is showing, so keep
   // auth.account in step — ProtectedRoute and the billing/settings pages read it.
@@ -355,6 +368,28 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             <X className="h-5 w-5" />
           </button>
         </div>
+        {/* Invitations to other workspaces. Kept out of the switcher below,
+            because being invited grants nothing until it's accepted. */}
+        {pendingWorkspaces.map((ws) => (
+          <div key={ws.id} className="mb-2 rounded-md border border-border bg-card p-2">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{ws.name}</span> invited you to join
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Button size="sm" className="h-7 flex-1 text-xs" onClick={() => handleAcceptInvite(ws.id)}>
+                Accept
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 flex-1 text-xs"
+                onClick={() => handleDeclineInvite(ws.id)}
+              >
+                Decline
+              </Button>
+            </div>
+          </div>
+        ))}
         {/* Only shown to people who actually belong to more than one workspace,
             so single-workspace users see no change. */}
         {workspaces.length > 1 && (

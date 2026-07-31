@@ -10,6 +10,10 @@ export interface Workspace {
 
 interface WorkspaceState {
   workspaces: Workspace[];
+  // Invitations awaiting this person's decision. Deliberately separate from
+  // `workspaces`: being invited grants nothing until they accept, so these must
+  // never feed the switcher.
+  pendingWorkspaces: Workspace[];
   activeWorkspaceId: number | null;
 }
 
@@ -17,6 +21,7 @@ const savedWorkspaceId = localStorage.getItem('messy_active_workspace');
 
 const initialState: WorkspaceState = {
   workspaces: [],
+  pendingWorkspaces: [],
   activeWorkspaceId: savedWorkspaceId ? Number(savedWorkspaceId) : null,
 };
 
@@ -34,12 +39,16 @@ const workspaceSlice = createSlice({
         localStorage.setItem('messy_active_workspace', String(action.payload[0].id));
       }
     },
+    setPendingWorkspaces: (state, action: PayloadAction<Workspace[]>) => {
+      state.pendingWorkspaces = action.payload;
+    },
     setActiveWorkspace: (state, action: PayloadAction<number>) => {
       state.activeWorkspaceId = action.payload;
       localStorage.setItem('messy_active_workspace', String(action.payload));
     },
     clearWorkspace: (state) => {
       state.workspaces = [];
+      state.pendingWorkspaces = [];
       state.activeWorkspaceId = null;
       localStorage.removeItem('messy_active_workspace');
     },
@@ -50,11 +59,13 @@ const workspaceSlice = createSlice({
   extraReducers: (builder) => {
     builder.addCase(logout, (state) => {
       state.workspaces = [];
+      state.pendingWorkspaces = [];
       state.activeWorkspaceId = null;
       localStorage.removeItem('messy_active_workspace');
     });
   },
 });
 
-export const { setWorkspaces, setActiveWorkspace, clearWorkspace } = workspaceSlice.actions;
+export const { setWorkspaces, setPendingWorkspaces, setActiveWorkspace, clearWorkspace } =
+  workspaceSlice.actions;
 export default workspaceSlice;

@@ -15,10 +15,10 @@
 <body>
   <div class="card">
     <div class="logo">Messy</div>
-    <h1>You've been added to a new workspace</h1>
-    <p><%= @inviter.name %> added you to <strong><%= @account.name %></strong> on Messy. Sign in as usual with <%= @user.email %> and pick it from the workspace switcher — your existing workspaces are unchanged.</p>
-    <a href="<%= @workspace_link %>" class="btn" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:9999px;font-size:15px;font-weight:600;">Open <%= @account.name %></a>
-    <p class="note">If you weren't expecting this, you can ignore this email or ask <%= @inviter.name %> to remove you from the workspace.</p>
+    <h1>You've been invited to a workspace</h1>
+    <p><%= @inviter.name %> invited you to <strong><%= @account.name %></strong> on Messy. Nothing has changed yet — you join only once you accept, and your existing workspaces are untouched either way.</p>
+    <a href="<%= @workspace_link %>" class="btn" style="display:inline-block;background:#3b82f6;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:9999px;font-size:15px;font-weight:600;">Review invitation</a>
+    <p class="note">Sign in as usual with <%= @user.email %> — the invitation is waiting in the app, so this link isn't the only way in. If you weren't expecting it, ignore this email or decline; until you accept, <%= @account.name %> can't see anything about your account.</p>
   </div>
 </body>
 </html>

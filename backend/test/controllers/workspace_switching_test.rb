@@ -50,7 +50,7 @@ class WorkspaceSwitchingTest < ActionDispatch::IntegrationTest
   end
 
   test "switching workspace scopes the data returned" do
-    AccountMembership.create!(user: @user, account: @other, role: :member)
+    join_workspace(@user, @other, role: :member)
 
     get "/accounts",
         headers: auth_headers(@user).merge("X-Account-Id" => @other.id.to_s),
@@ -61,7 +61,7 @@ class WorkspaceSwitchingTest < ActionDispatch::IntegrationTest
 
   test "admin of one workspace is not automatically admin of another" do
     # Admin in :acme, plain member in :other_co.
-    AccountMembership.create!(user: users(:regular), account: @other, role: :member)
+    join_workspace(users(:regular), @other, role: :member)
     users(:regular).membership_for(accounts(:acme)).update!(role: :admin)
 
     patch "/accounts/#{accounts(:acme).id}", params: { account: { name: "Renamed" } },
@@ -76,7 +76,7 @@ class WorkspaceSwitchingTest < ActionDispatch::IntegrationTest
   end
 
   test "users/me lists every workspace the caller belongs to" do
-    AccountMembership.create!(user: @user, account: @other, role: :member)
+    join_workspace(@user, @other, role: :member)
 
     get "/users/me", headers: auth_headers(@user), as: :json
     assert_response :success
@@ -93,6 +93,10 @@ class WorkspaceSwitchingTest < ActionDispatch::IntegrationTest
 
     created = Account.find(JSON.parse(response.body)["id"])
     assert_equal "admin", @user.membership_for(created).role
+    # Their own workspace — nothing to accept, so it must be usable immediately.
+    assert @user.member_of?(created)
+    get "/accounts", headers: auth_headers(@user).merge("X-Account-Id" => created.id.to_s), as: :json
+    assert_response :success
   end
 
   # Nothing else in the app creates an environment, so without this the switcher
@@ -114,7 +118,7 @@ class WorkspaceSwitchingTest < ActionDispatch::IntegrationTest
   # The SPA gates admin UI on user.role, so it has to describe the workspace the
   # caller is in — not whichever one users.account_id happens to point at.
   test "users/me reports the role in the active workspace" do
-    AccountMembership.create!(user: @user, account: @other, role: :admin)
+    join_workspace(@user, @other, role: :admin)
 
     get "/users/me",
         headers: auth_headers(@user).merge("X-Account-Id" => @other.id.to_s),
@@ -134,7 +138,7 @@ class WorkspaceSwitchingTest < ActionDispatch::IntegrationTest
   # member that is another tenant's id, which must not surface in this one.
   test "a user list never leaks another workspace's id" do
     user = users(:regular) # default workspace is :acme
-    AccountMembership.create!(user: user, account: @other, role: :member)
+    join_workspace(user, @other, role: :member)
 
     get "/users",
         headers: auth_headers(users(:other_user)).merge("X-Account-Id" => @other.id.to_s),

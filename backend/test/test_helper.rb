@@ -18,6 +18,18 @@ module ActiveSupport
     def widget_visitor_token
       "test_visitor_token_#{SecureRandom.hex(8)}"
     end
+
+    # Put `user` in `account` for real. A bare AccountMembership.create! leaves
+    # accepted_at NULL, which is an *invitation* and grants nothing — use
+    # invite_to_workspace when that's what you actually want.
+    def join_workspace(user, account, role: :member)
+      AccountMembership.create!(user: user, account: account, role: role,
+                                accepted_at: Time.current)
+    end
+
+    def invite_to_workspace(user, account, role: :member)
+      AccountMembership.create!(user: user, account: account, role: role, accepted_at: nil)
+    end
   end
 end
 

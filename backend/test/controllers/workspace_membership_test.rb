@@ -11,7 +11,7 @@ class WorkspaceMembershipTest < ActionDispatch::IntegrationTest
     @other_admin = users(:other_user)
   end
 
-  test "inviting an existing email adds a membership instead of a second user" do
+  test "inviting an existing email creates a pending invitation, not a second user" do
     existing = users(:regular) # already in :acme
 
     assert_no_difference -> { User.count } do
@@ -21,8 +21,84 @@ class WorkspaceMembershipTest < ActionDispatch::IntegrationTest
       end
     end
     assert_response :created
-    assert existing.reload.member_of?(@other)
+
+    # Named by an admin, but not a member: being invited isn't consenting.
+    assert_not existing.reload.member_of?(@other)
+    assert existing.membership_for(@other).pending?
     assert existing.member_of?(@acme), "must keep their original workspace"
+  end
+
+  # The whole point of the pending step: until they accept, the inviting
+  # workspace learns nothing about the person behind the address.
+  test "an invitation discloses nothing about the invitee" do
+    existing = users(:regular)
+
+    post "/users", params: { name: "Guessed Name", email: existing.email },
+         headers: auth_headers(@other_admin), as: :json
+    assert_response :created
+
+    body = JSON.parse(response.body)
+    assert_equal existing.email, body["email"]
+    assert_nil body["name"]
+    assert_nil body["last_login_at"]
+    assert_nil body["is_super_admin"]
+    assert_nil body["id"], "the user id is theirs, not the inviting workspace's"
+
+    # ...and they don't appear in the member list either.
+    get "/users", headers: auth_headers(@other_admin), as: :json
+    assert_not_includes JSON.parse(response.body).map { |u| u["email"] }, existing.email
+  end
+
+  test "accepting an invitation grants access; declining removes it" do
+    existing = users(:regular)
+    invite_to_workspace(existing, @other)
+
+    post "/accounts/#{@other.id}/accept_invitation",
+         headers: auth_headers(existing), as: :json
+    assert_response :success
+    assert existing.reload.member_of?(@other)
+
+    other_invite = accounts(:acme)
+    invite_to_workspace(@other_admin, other_invite)
+    assert_difference -> { AccountMembership.count } => -1 do
+      delete "/accounts/#{other_invite.id}/decline_invitation",
+             headers: auth_headers(@other_admin), as: :json
+    end
+    assert_response :no_content
+    assert_not @other_admin.reload.member_of?(other_invite)
+  end
+
+  test "you cannot accept an invitation that was never offered to you" do
+    post "/accounts/#{@other.id}/accept_invitation",
+         headers: auth_headers(users(:regular)), as: :json
+    assert_response :not_found
+    assert_not users(:regular).reload.member_of?(@other)
+  end
+
+  test "a pending invitee cannot act in the workspace" do
+    existing = users(:regular)
+    invite_to_workspace(existing, @other)
+
+    get "/accounts", headers: auth_headers(existing).merge("X-Account-Id" => @other.id.to_s),
+        as: :json
+    assert_response :forbidden
+  end
+
+  test "the admin can see and revoke outstanding invitations" do
+    existing = users(:regular)
+    invite_to_workspace(existing, @other)
+
+    get "/users/invitations", headers: auth_headers(@other_admin), as: :json
+    assert_response :success
+    invitations = JSON.parse(response.body)
+    assert_equal [existing.email], invitations.map { |i| i["email"] }
+    assert_nil invitations.first["name"], "an invitation is an address, not a person"
+
+    assert_difference -> { AccountMembership.count } => -1 do
+      delete "/users/invitations/#{invitations.first['id']}",
+             headers: auth_headers(@other_admin), as: :json
+    end
+    assert_response :no_content
   end
 
   test "the cross-workspace invite does not rotate the existing magic link token" do
@@ -53,7 +129,7 @@ class WorkspaceMembershipTest < ActionDispatch::IntegrationTest
 
   test "removing someone from one workspace keeps their login and other workspaces" do
     user = users(:regular)
-    AccountMembership.create!(user: user, account: @other, role: :member)
+    join_workspace(user, @other, role: :member)
 
     assert_no_difference -> { User.count } do
       delete "/users/#{user.id}",
@@ -82,7 +158,7 @@ class WorkspaceMembershipTest < ActionDispatch::IntegrationTest
 
   test "role reported for a user is the role in the workspace being viewed" do
     user = users(:regular) # member in :acme
-    AccountMembership.create!(user: user, account: @other, role: :admin)
+    join_workspace(user, @other, role: :admin)
 
     get "/users/#{user.id}",
         headers: auth_headers(@other_admin).merge("X-Account-Id" => @other.id.to_s),
@@ -97,7 +173,7 @@ class WorkspaceMembershipTest < ActionDispatch::IntegrationTest
 
   test "destroying a workspace rehomes members who belong elsewhere" do
     user = users(:regular)
-    AccountMembership.create!(user: user, account: @other, role: :member)
+    join_workspace(user, @other, role: :member)
     user.update_column(:account_id, @other.id) # default workspace is the one going away
 
     @other.destroy!

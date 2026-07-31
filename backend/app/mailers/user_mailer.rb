@@ -39,18 +39,23 @@ class UserMailer < ApplicationMailer
     mail(to: @user.email, subject: "You've been invited to the #{@user.account.name} workspace on Messy")
   end
 
-  # Someone who already has a Messy login has been added to another workspace.
+  # Someone who already has a Messy login has been invited to another workspace.
+  # They are NOT a member yet — the membership stays pending until they accept,
+  # so this email is the ask, not a notification.
+  #
   # Deliberately does NOT mint a magic-link token: they may well be signed in
-  # right now, and rotating it would invalidate that session. The link just deep-
-  # links to the workspace, which the switcher picks up after normal auth.
+  # right now, and rotating it would invalidate that session. The link deep-links
+  # to the invitation, which the app also surfaces on its own after normal auth —
+  # so a lost or expired email never strands the invitation.
   def workspace_invitation_email
     @user = params[:user]
     @inviter = params[:inviter]
     @account = params[:account]
-    frontend_url = ENV.fetch('FRONTEND_URL', 'http://localhost:5174')
-    @workspace_link = "#{frontend_url}/?workspace=#{@account.id}"
+    # Just the app: pending invitations are surfaced there on their own, so
+    # there's no token or deep link to go stale.
+    @workspace_link = ENV.fetch('FRONTEND_URL', 'http://localhost:5174')
 
-    mail(to: @user.email, subject: "You've been added to #{@account.name} on Messy")
+    mail(to: @user.email, subject: "#{@inviter.name} invited you to #{@account.name} on Messy")
   end
 
   def conversation_assigned
