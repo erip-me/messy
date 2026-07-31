@@ -46,6 +46,10 @@ class SuperAdminAccountsControllerTest < ActionDispatch::IntegrationTest
     assert_equal account.id, user.account_id, "default workspace must be set"
     assert user.member_of?(account), "membership must be granted"
     assert_includes account.users, user
+    # Sole occupant of a brand new workspace — as a member they could not invite
+    # anyone or manage environments, leaving it unadministrable.
+    assert_equal "admin", user.membership_for(account).role
+    assert user.account_admin?(account)
   end
 
   test "create rolls the account back when the first_user is invalid" do

@@ -38,9 +38,15 @@ class SuperAdmin::AccountsController < SuperAdmin::BaseController
       # Create first user if provided. `account.users` is a has_many :through
       # now, so it can't build the User — nothing would set users.account_id.
       # Build it directly: `account:` sets their default workspace and
-      # User#ensure_default_membership grants the matching membership.
+      # User#ensure_default_membership grants a membership carrying this role.
+      #
+      # :admin for the same reason SignupsController uses it — this is the
+      # workspace's first and only person, so anything less leaves it with
+      # nobody who can invite users or manage environments.
       if params[:first_user].present?
-        @user = User.create!(params[:first_user].permit(:name, :email).merge(account: @account))
+        @user = User.create!(
+          params[:first_user].permit(:name, :email).merge(account: @account, role: :admin)
+        )
       end
     end
 
