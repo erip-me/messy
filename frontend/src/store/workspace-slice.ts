@@ -1,9 +1,11 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { logout } from './auth-slice';
 
 export interface Workspace {
   id: number;
   name: string;
-  role: string;
+  // Mirrors AccountMembership#role, and feeds auth.user.role on a switch.
+  role: 'admin' | 'member';
 }
 
 interface WorkspaceState {
@@ -41,6 +43,16 @@ const workspaceSlice = createSlice({
       state.activeWorkspaceId = null;
       localStorage.removeItem('messy_active_workspace');
     },
+  },
+  // The selection belongs to the session, not the browser. Left behind, the next
+  // person to sign in here sends the previous user's X-Account-Id and eats a 403
+  // on their first request.
+  extraReducers: (builder) => {
+    builder.addCase(logout, (state) => {
+      state.workspaces = [];
+      state.activeWorkspaceId = null;
+      localStorage.removeItem('messy_active_workspace');
+    });
   },
 });
 

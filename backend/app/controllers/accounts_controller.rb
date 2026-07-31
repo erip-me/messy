@@ -29,6 +29,12 @@ class AccountsController < ApplicationController
         onboarding_completed_at: Time.current
       )
       AccountMembership.create!(user: current_user, account: account, role: :admin)
+
+      # Everything below the workspace is environment-scoped, and nothing else in
+      # the app creates an environment (the onboarding wizard only covers invites
+      # and plan choice). Without this the switcher drops you into a workspace
+      # where every page is empty and no request carries an X-Environment-Id.
+      account.environments.create!(name: 'Production', tag: 'prod')
     end
 
     render json: AccountResource.new(account).serialize, status: :created

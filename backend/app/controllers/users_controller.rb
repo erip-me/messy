@@ -92,8 +92,10 @@ class UsersController < ApplicationController
     authenticate_user!
     return unless current_user
 
+    # Role is per-workspace and the SPA gates admin UI on it, so report it for the
+    # workspace the caller is actually in — not their default one.
     render json: {
-      user: UserResource.new(current_user, params: { account: current_user.account }).to_h,
+      user: UserResource.new(current_user, params: { account: resolved_account }).to_h,
       workspaces: workspaces_for(current_user),
       token: generate_jwt(current_user)
     }, status: :ok
@@ -127,9 +129,10 @@ class UsersController < ApplicationController
   end
 
   # Role for an invited user. Defaults to :member; only a valid enum value is
-  # accepted so an admin can choose to invite another admin.
+  # accepted so an admin can choose to invite another admin. Validated against
+  # AccountMembership, which is where the role actually lands.
   def invited_role
-    User.roles.key?(params[:role].to_s) ? params[:role] : :member
+    AccountMembership.roles.key?(params[:role].to_s) ? params[:role] : :member
   end
 
   def demoting_last_admin?

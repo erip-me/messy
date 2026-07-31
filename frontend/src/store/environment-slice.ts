@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { logout } from './auth-slice';
 
 export interface Environment {
   id: number;
@@ -44,6 +45,15 @@ const environmentSlice = createSlice({
       state.activeEnvironmentId = null;
       localStorage.removeItem('messy_active_env');
     },
+  },
+  // Same reasoning as the workspace slice: the selection is per-session, and a
+  // leftover environment id belongs to the previous user's workspace.
+  extraReducers: (builder) => {
+    builder.addCase(logout, (state) => {
+      state.environments = [];
+      state.activeEnvironmentId = null;
+      localStorage.removeItem('messy_active_env');
+    });
   },
 });
 

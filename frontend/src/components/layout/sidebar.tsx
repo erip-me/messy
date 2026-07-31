@@ -183,13 +183,18 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
 
   // The active workspace decides which account the app is showing, so keep
   // auth.account in step — ProtectedRoute and the billing/settings pages read it.
+  // auth.user.role has to follow too: role is per-workspace and the admin UI
+  // gates on it, so leaving the previous workspace's role in place either hides
+  // controls the user is entitled to or shows ones that will 403. The workspace
+  // list already carries the per-workspace role, so no extra round trip.
   useEffect(() => {
     if (!activeWorkspaceId || !user) return;
+    const role = workspaces.find((w) => w.id === activeWorkspaceId)?.role ?? user.role;
     request
       .get('/accounts')
-      .then((res) => dispatch(setCredentials({ user, account: res.data })))
+      .then((res) => dispatch(setCredentials({ user: { ...user, role }, account: res.data })))
       .catch(() => {});
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, workspaces]);
 
   // Environments are workspace-scoped, so drop the current selection before the
   // new workspace's list arrives — otherwise the next request carries an

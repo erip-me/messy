@@ -31,6 +31,13 @@ class Rack::Attack
     client_ip(req) if req.path == "/signup" && req.post?
   end
 
+  # Additional workspaces for an already-signed-in user. Authenticated, but each
+  # one is still a fresh trial account — without this, signing up once and then
+  # minting workspaces walks straight around the /signup limit above.
+  throttle("accounts/ip", limit: 5, period: 1.hour) do |req|
+    client_ip(req) if req.path == "/accounts" && req.post?
+  end
+
   # Public contact form. Each accepted request sends an email, so keep it tight.
   throttle("contact/ip", limit: 5, period: 1.hour) do |req|
     client_ip(req) if req.path == "/contact" && req.post?

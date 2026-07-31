@@ -94,4 +94,55 @@ class WorkspaceSwitchingTest < ActionDispatch::IntegrationTest
     created = Account.find(JSON.parse(response.body)["id"])
     assert_equal "admin", @user.membership_for(created).role
   end
+
+  # Nothing else in the app creates an environment, so without this the switcher
+  # drops you into a workspace where every page is empty.
+  test "a new workspace is usable immediately: it has an environment" do
+    post "/accounts", params: { name: "Third Client" },
+         headers: auth_headers(@user), as: :json
+    assert_response :created
+
+    created = Account.find(JSON.parse(response.body)["id"])
+    assert_equal 1, created.environments.count
+  end
+
+  test "creating a workspace without a name is a 400, not a 500" do
+    post "/accounts", params: {}, headers: auth_headers(@user), as: :json
+    assert_response :bad_request
+  end
+
+  # The SPA gates admin UI on user.role, so it has to describe the workspace the
+  # caller is in — not whichever one users.account_id happens to point at.
+  test "users/me reports the role in the active workspace" do
+    AccountMembership.create!(user: @user, account: @other, role: :admin)
+
+    get "/users/me",
+        headers: auth_headers(@user).merge("X-Account-Id" => @other.id.to_s),
+        as: :json
+    assert_response :success
+    body = JSON.parse(response.body)
+    assert_equal "admin", body["user"]["role"]
+    assert_equal @other.id, body["user"]["account_id"]
+
+    # ...and the default workspace still reports the default role.
+    get "/users/me", headers: auth_headers(@user), as: :json
+    assert_response :success
+    assert_equal "member", JSON.parse(response.body)["user"]["role"]
+  end
+
+  # users.account_id is the person's *default* workspace. For a multi-workspace
+  # member that is another tenant's id, which must not surface in this one.
+  test "a user list never leaks another workspace's id" do
+    user = users(:regular) # default workspace is :acme
+    AccountMembership.create!(user: user, account: @other, role: :member)
+
+    get "/users",
+        headers: auth_headers(users(:other_user)).merge("X-Account-Id" => @other.id.to_s),
+        as: :json
+    assert_response :success
+
+    account_ids = JSON.parse(response.body).map { |u| u["account_id"] }
+    assert_equal [@other.id], account_ids.uniq
+    assert_not_includes account_ids, accounts(:acme).id
+  end
 end

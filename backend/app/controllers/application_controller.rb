@@ -18,6 +18,9 @@ class ApplicationController < ActionController::API
   rescue_from ActionController::RoutingError, with: :render_404
   rescue_from ActiveRecord::RecordNotFound, with: :render_404
   rescue_from ActiveRecord::RecordInvalid, with: :render_unprocessable_entity
+  # Every controller reaches for params.require, and the StandardError catch-all
+  # above would otherwise turn a missing param into a 500. It's a bad request.
+  rescue_from ActionController::ParameterMissing, with: :render_parameter_missing
   rescue_from WorkspaceForbidden, with: :render_workspace_forbidden
   rescue_from EnvironmentForbidden, with: :render_environment_forbidden
 
@@ -33,6 +36,10 @@ class ApplicationController < ActionController::API
     # Log full details server-side; never leak exception internals (SQL, paths) to clients.
     Rails.logger.error("#{exception.class}: #{exception.message}\n#{exception.backtrace&.first(20)&.join("\n")}")
     render json: { error: "Something went wrong" }, status: :internal_server_error
+  end
+
+  def render_parameter_missing(exception)
+    render json: { error: "Missing required parameter: #{exception.param}" }, status: :bad_request
   end
 
   def render_workspace_forbidden
