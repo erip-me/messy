@@ -1,0 +1,274 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# End-to-end check of the signup and workspace-invitation flows against a real
+# running server, on a throwaway database. Boots everything, asserts, tears down.
+#
+#   bin/e2e                 # run it
+#   E2E_PORT=5099 bin/e2e   # if 5099 is taken
+#   E2E_KEEP=1 bin/e2e      # leave the server + DB up afterwards to poke at
+#
+# This exists because the minitest suite can't see some of what matters here: it
+# runs in the test env (so env-specific branches are invisible), and it bypasses
+# the middleware stack, so Rack::Attack throttles and real routing go unchecked.
+# Anything provable in a normal integration test belongs in test/, not here.
+
+require "json"
+require "net/http"
+require "uri"
+
+PORT    = ENV.fetch("E2E_PORT", "5099")
+DB      = ENV.fetch("E2E_DATABASE", "messy_e2e")
+BASE    = "http://127.0.0.1:#{PORT}"
+ROOT    = File.expand_path("..", __dir__)
+BACKEND = File.join(ROOT, "backend")
+STAMP   = Time.now.to_i.to_s
+
+results = []
+server_pid = nil
+
+def call(method, path, body: nil, token: nil, account: nil)
+  uri = URI("#{BASE}#{path}")
+  klass = { "GET" => Net::HTTP::Get, "POST" => Net::HTTP::Post,
+            "DELETE" => Net::HTTP::Delete, "PATCH" => Net::HTTP::Patch }.fetch(method)
+  req = klass.new(uri)
+  req["Content-Type"] = "application/json"
+  # test_helper sets this for the same reason: skip the force_ssl redirect.
+  req["X-Forwarded-Proto"] = "https"
+  req["Authorization"] = "Bearer #{token}" if token
+  req["X-Account-Id"] = account.to_s if account
+  req.body = JSON.generate(body) if body
+
+  res = Net::HTTP.start(uri.hostname, uri.port) { |http| http.request(req) }
+  parsed = res.body.to_s.empty? ? nil : (JSON.parse(res.body) rescue { "_raw" => res.body[0, 200] })
+  [res.code.to_i, parsed]
+end
+
+def check(results, name, condition, detail = "")
+  ok = !!condition
+  results << [name, ok]
+  puts(ok ? "  \e[32mPASS\e[0m  #{name}" : "  \e[31mFAIL\e[0m  #{name}#{detail.empty? ? '' : "   [#{detail}]"}")
+end
+
+def signup(email, account_name)
+  call("POST", "/signup", body: { name: "E2E #{email.split('@').first}", email: email,
+                                  account_name: account_name })
+end
+
+def login(magic_token)
+  status, body = call("GET", "/magic_links/validate?token=#{magic_token}")
+  abort "magic link validate failed: #{status} #{body}" unless status == 200
+  body["token"]
+end
+
+# Create/drop with the Postgres CLI, NOT `rails db:create` / `db:drop`. Those
+# act on development *and* test, and DATABASE_NAME only redirects development —
+# so `rails db:drop` here would delete the developer's messy_test as collateral.
+# db:schema:load acts on the current env alone and is safe.
+def dropdb(name)
+  system("dropdb", "--if-exists", name, out: File::NULL, err: File::NULL)
+end
+
+begin
+  puts "\nPreparing #{DB} ..."
+  env = { "DATABASE_NAME" => DB, "FRONTEND_URL" => ENV.fetch("FRONTEND_URL", "http://localhost:5174") }
+  dropdb(DB)
+  unless system("createdb", DB, out: File::NULL, err: File::NULL)
+    abort "could not create #{DB} — is Postgres running?"
+  end
+  unless system(env, "bin/rails", "db:schema:load",
+                chdir: BACKEND, out: File::NULL, err: File::NULL)
+    abort "could not load the schema into #{DB}"
+  end
+
+  puts "Booting server on :#{PORT} ..."
+  server_pid = spawn(env, "bin/rails", "server", "-p", PORT, "-b", "127.0.0.1",
+                     chdir: BACKEND, out: File::NULL, err: File::NULL)
+  60.times do
+    break if (call("GET", "/up").first == 200 rescue false)
+    sleep 1
+  end
+  abort "server did not come up on :#{PORT}" unless (call("GET", "/up").first == 200 rescue false)
+
+  puts "\n=== 1. Signup still works ==="
+  a_email = "alice-#{STAMP}@example.com"
+  _, a1 = signup(a_email, "Alice Co")
+  check(results, "fresh signup returns a dev magic-link token", a1 && a1["token"], a1.inspect)
+  a_jwt = login(a1["token"])
+  check(results, "magic link logs the new user in", !a_jwt.to_s.empty?)
+
+  _, me = call("GET", "/users/me", token: a_jwt)
+  check(results, "new signup is admin of their own workspace", me["user"]["role"] == "admin", me["user"]["role"].inspect)
+  check(results, "new signup has exactly one workspace", me["workspaces"].size == 1, me["workspaces"].inspect)
+  check(results, "new signup has no pending invitations", me["pending_workspaces"] == [])
+  a_account = me["workspaces"].first["id"]
+
+  puts "\n=== 2. Signup no longer reveals a registered address ==="
+  st2, a2 = signup(a_email, "Someone Else Co")
+  check(results, "duplicate signup returns 201, not 409", st2 == 201, "#{st2} #{a2.inspect}")
+  check(results, "duplicate signup creates no second account", !(a2 || {}).key?("id"))
+  check(results, "duplicate signup does NOT leak a login token for the owner", !(a2 || {})["token"],
+        "a token here would hand the caller a live magic link for someone else's account")
+
+  # In development the *fresh* path also returns a dev magic-link token, so the
+  # two responses differ here. That is the house convention (MagicLinksController
+  # does the same, beside its own enumeration guard) and is unreachable in a
+  # deployment — docker-compose.yml and backend/Dockerfile both pin
+  # RAILS_ENV=production. Strict parity in non-dev is asserted by
+  # SignupsControllerTest, which runs in the test env.
+  if a1["token"]
+    puts "  \e[33mNOTE\e[0m  development: fresh-signup responses carry a dev token by design"
+    check(results, "duplicate signup reveals nothing beyond the generic message",
+          (a2 || {}).keys.sort == ["message"], a2.inspect)
+  else
+    check(results, "duplicate signup message is identical to a fresh one",
+          a2["message"] == a1["message"], "#{a2['message'].inspect} vs #{a1['message'].inspect}")
+  end
+
+  puts "\n=== 3. Inviting a brand new address (unchanged behaviour) ==="
+  c_email = "carol-#{STAMP}@example.com"
+  st, c = call("POST", "/users", body: { name: "Carol", email: c_email, role: "member" },
+               token: a_jwt, account: a_account)
+  check(results, "inviting a new address returns 201", st == 201, "#{st} #{c.inspect}")
+  check(results, "a brand new invitee is a full member right away", c["id"] && c["email"] == c_email)
+  _, users = call("GET", "/users", token: a_jwt, account: a_account)
+  check(results, "the new invitee appears in the member list", users.map { |u| u["email"] }.include?(c_email))
+
+  puts "\n=== 4. Inviting an address that already has a login ==="
+  b_email = "bob-#{STAMP}@example.com"
+  _, b1 = signup(b_email, "Bob Co")
+  b_jwt = login(b1["token"])
+  _, b_me = call("GET", "/users/me", token: b_jwt)
+  b_account = b_me["workspaces"].first["id"]
+
+  st, inv = call("POST", "/users", body: { name: "Guessed Name", email: b_email, role: "member" },
+                 token: a_jwt, account: a_account)
+  check(results, "inviting an existing address returns 201", st == 201, "#{st} #{inv.inspect}")
+  check(results, "response says invited, not member", inv["status"] == "invited", inv.inspect)
+  %w[name id last_login_at is_super_admin].each do |field|
+    check(results, "response discloses no #{field}", inv[field].nil?, inv.inspect)
+  end
+
+  _, users = call("GET", "/users", token: a_jwt, account: a_account)
+  check(results, "a pending invitee is absent from the member list",
+        !users.map { |u| u["email"] }.include?(b_email), users.map { |u| u["email"] }.inspect)
+
+  _, invitations = call("GET", "/users/invitations", token: a_jwt, account: a_account)
+  check(results, "the admin sees the outstanding invitation",
+        invitations.map { |i| i["email"] } == [b_email], invitations.inspect)
+  check(results, "the invitation carries no profile data", invitations.first["name"].nil?)
+  invitation_id = invitations.first["id"]
+
+  puts "\n=== 5. A pending invitee has no access ==="
+  st, body = call("GET", "/accounts", token: b_jwt, account: a_account)
+  check(results, "pending invitee is refused the workspace", st == 403, "#{st} #{body.inspect}")
+  check(results, "refusal carries the machine-readable code", (body || {})["code"] == "unknown_workspace")
+  st, = call("GET", "/users", token: b_jwt, account: a_account)
+  check(results, "pending invitee cannot read the member list", st == 403, st.to_s)
+
+  _, b_me = call("GET", "/users/me", token: b_jwt)
+  check(results, "invitee sees it as pending, not joined",
+        b_me["pending_workspaces"].map { |w| w["id"] } == [a_account], b_me["pending_workspaces"].inspect)
+  check(results, "the invitation is NOT in their workspace list",
+        !b_me["workspaces"].map { |w| w["id"] }.include?(a_account), b_me["workspaces"].inspect)
+
+  puts "\n=== 6. Accepting grants access ==="
+  st, body = call("POST", "/accounts/#{a_account}/accept_invitation", body: {}, token: b_jwt)
+  check(results, "accepting returns 200", st == 200, "#{st} #{body.inspect}")
+  st, body = call("GET", "/accounts", token: b_jwt, account: a_account)
+  check(results, "accepted invitee can now use the workspace", st == 200, "#{st} #{body.inspect}")
+  _, b_me = call("GET", "/users/me", token: b_jwt)
+  check(results, "workspace moves from pending to joined",
+        b_me["workspaces"].map { |w| w["id"] }.include?(a_account) && b_me["pending_workspaces"] == [])
+  _, users = call("GET", "/users", token: a_jwt, account: a_account)
+  check(results, "accepted invitee now appears in the member list", users.map { |u| u["email"] }.include?(b_email))
+
+  puts "\n=== 7. Role is per workspace ==="
+  _, own = call("GET", "/users/me", token: b_jwt, account: b_account)
+  _, joined = call("GET", "/users/me", token: b_jwt, account: a_account)
+  check(results, "admin of their own workspace", own["user"]["role"] == "admin", own["user"]["role"].inspect)
+  check(results, "member of the workspace they joined", joined["user"]["role"] == "member", joined["user"]["role"].inspect)
+  check(results, "account_id reports the workspace being viewed",
+        joined["user"]["account_id"] == a_account, joined["user"]["account_id"].inspect)
+
+  puts "\n=== 8. Declining, and revoking ==="
+  d_email = "dave-#{STAMP}@example.com"
+  _, d1 = signup(d_email, "Dave Co")
+  d_jwt = login(d1["token"])
+  call("POST", "/users", body: { name: "Dave", email: d_email, role: "member" }, token: a_jwt, account: a_account)
+  st, = call("DELETE", "/accounts/#{a_account}/decline_invitation", token: d_jwt)
+  check(results, "declining returns 204", st == 204, st.to_s)
+  _, d_me = call("GET", "/users/me", token: d_jwt)
+  check(results, "declined invitation disappears", d_me["pending_workspaces"] == [])
+  st, = call("GET", "/accounts", token: d_jwt, account: a_account)
+  check(results, "declining leaves no access", st == 403, st.to_s)
+
+  st, = call("DELETE", "/users/invitations/#{invitation_id}", token: a_jwt, account: a_account)
+  check(results, "revoking an already-accepted invitation 404s", st == 404, st.to_s)
+
+  call("POST", "/users", body: { name: "Dave", email: d_email, role: "member" }, token: a_jwt, account: a_account)
+  _, invitations = call("GET", "/users/invitations", token: a_jwt, account: a_account)
+  st, = call("DELETE", "/users/invitations/#{invitations.first['id']}", token: a_jwt, account: a_account)
+  check(results, "admin can withdraw a pending invitation", st == 204, st.to_s)
+  _, d_me = call("GET", "/users/me", token: d_jwt)
+  check(results, "withdrawn invitation disappears for the invitee", d_me["pending_workspaces"] == [])
+
+  puts "\n=== 9. Guards that must not have regressed ==="
+  st, body = call("GET", "/accounts", token: b_jwt, account: 999_999_999)
+  check(results, "unknown X-Account-Id is 403, never a fallback", st == 403, "#{st} #{body.inspect}")
+  st, body = call("POST", "/users", body: { name: "X", email: c_email }, token: b_jwt, account: a_account)
+  check(results, "a plain member cannot invite", st == 403, "#{st} #{body.inspect}")
+  st, body = call("POST", "/accounts", body: { name: "" }, token: a_jwt, account: a_account)
+  check(results, "blank workspace name is 4xx, not a 500", (400...500).cover?(st), "#{st} #{body.inspect}")
+
+  st, ws = call("POST", "/accounts", body: { name: "Alice Second Client" }, token: a_jwt, account: a_account)
+  check(results, "creating a workspace returns 201", st == 201, "#{st} #{ws.inspect}")
+  st, body = call("GET", "/accounts", token: a_jwt, account: ws["id"])
+  check(results, "creator can use their new workspace immediately", st == 200, "#{st} #{body.inspect}")
+  _, envs = call("GET", "/environments", token: a_jwt, account: ws["id"])
+  env_list = envs.is_a?(Array) ? envs : (envs || {})["environments"].to_a
+  check(results, "the new workspace has a default environment", env_list.size == 1, envs.inspect)
+
+  puts "\n=== 10. Signup throttle (Rack::Attack) ==="
+  codes = 4.times.map { |i| signup("flood-#{STAMP}-#{i}@example.com", "Flood").first }
+  check(results, "signup is throttled after the hourly limit", codes.include?(429), "codes=#{codes.inspect}")
+
+  puts "\n=== 11. Invitation mail renders ==="
+  # A broken template only blows up inside the delivery job, where nothing else
+  # would notice.
+  # Non-interpolating heredoc: this is a script for the child process, so its
+  # #{...} must survive intact rather than being evaluated here.
+  script = <<~'RUBY'
+    inviter = User.order(:id).first
+    invitee = User.where.not(id: inviter.id).order(:id).first
+    m = UserMailer.with(user: invitee, inviter: inviter, account: inviter.account).workspace_invitation_email
+    n = UserMailer.with(user: invitee).existing_account_notice
+    body = m.html_part&.body.to_s.presence || m.body.to_s
+    nbody = n.html_part&.body.to_s.presence || n.body.to_s
+    puts "E2E_MAIL #{body.length > 200} #{nbody.length > 200} #{!nbody.match?(%r{validate/[a-f0-9]{20}})}"
+  RUBY
+  out = IO.popen(env, ["bin/rails", "runner", script], chdir: BACKEND, err: File::NULL, &:read)
+  flags = out[/E2E_MAIL (\S+) (\S+) (\S+)/, 0].to_s.split[1..] || []
+  check(results, "workspace_invitation_email renders", flags[0] == "true", out[-200..].to_s)
+  check(results, "existing_account_notice renders", flags[1] == "true", out[-200..].to_s)
+  check(results, "the notice embeds no magic-link token", flags[2] == "true")
+ensure
+  unless ENV["E2E_KEEP"]
+    if server_pid
+      Process.kill("TERM", server_pid) rescue nil
+      Process.wait(server_pid) rescue nil
+    end
+    dropdb(DB)
+  else
+    puts "\nE2E_KEEP set — server still on :#{PORT}, database #{DB} kept (pid #{server_pid})."
+  end
+end
+
+failed = results.reject(&:last).map(&:first)
+puts "\n" + "=" * 60
+puts "#{results.size - failed.size}/#{results.size} passed"
+unless failed.empty?
+  puts "\nFAILED:"
+  failed.each { |n| puts "  - #{n}" }
+end
+exit(failed.empty? ? 0 : 1)

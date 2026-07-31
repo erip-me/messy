@@ -81,6 +81,24 @@ with rich data and fake provider credentials — useful for screenshots and UI w
 
 Backend tests: `cd backend && bin/rails test`. The pre-push hook runs the suite.
 
+### End-to-end: `bin/e2e`
+
+Drives signup and the workspace-invitation flow against a real running server on a
+throwaway database, booting and tearing down both itself. Exits non-zero on failure.
+
+```bash
+bin/e2e              # run it
+E2E_PORT=5100 bin/e2e  # if the default 5099 is taken
+E2E_KEEP=1 bin/e2e     # leave the server and DB up afterwards to poke at
+```
+
+It exists for what the minitest suite structurally cannot see: the suite runs in the
+test env, so env-specific branches (like the dev-only magic-link token in
+`SignupsController`) are invisible to it, and it bypasses the middleware stack, so
+Rack::Attack throttles and real routing go unexercised. **Anything provable in an
+ordinary integration test belongs in `test/`, not here** — this is slow and needs
+Postgres.
+
 ### Backend schema dumps must stay in sync (important)
 
 In `backend/`, the test env points the `primary`, `queue`, and `cable` connections at the
