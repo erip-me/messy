@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PageSkeleton } from '@/components/ui/table-skeleton';
 import { RootState } from '@/store';
 import {
@@ -21,6 +22,20 @@ import toast from 'react-hot-toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useActiveEnvironment } from '@/hooks/useActiveEnvironment';
 import { useResource } from '@/hooks/use-resource';
+
+// The operator profile avatar where one has been uploaded, initials otherwise.
+function MemberAvatar({ user }: { user: User }) {
+  return (
+    <Avatar className="w-8 h-8 shrink-0">
+      {user.operator_profile?.avatar_url && (
+        <AvatarImage src={user.operator_profile.avatar_url} alt="" />
+      )}
+      <AvatarFallback className="bg-primary/10 text-sm font-medium">
+        {user.name.charAt(0).toUpperCase()}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
 
 export function UsersIndexPage() {
   const currentUser = useSelector((state: RootState) => state.auth.user);
@@ -240,11 +255,7 @@ export function UsersIndexPage() {
                   <div key={user.id} className="p-4 flex flex-col gap-2">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <span className="text-sm font-medium">
-                            {user.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        <MemberAvatar user={user} />
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-medium truncate">{user.name}</p>
@@ -320,11 +331,7 @@ export function UsersIndexPage() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-sm font-medium">
-                            {user.name.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        <MemberAvatar user={user} />
                         <div className="flex items-center gap-2">
                           <p className="font-medium">{user.name}</p>
                           {user.id === Number(currentUser?.id) && (
