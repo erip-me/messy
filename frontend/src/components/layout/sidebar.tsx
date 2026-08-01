@@ -9,6 +9,16 @@ import { setWorkspaces, setPendingWorkspaces, setActiveWorkspace } from '@/store
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getInitials } from '@/utils/initials';
+import { tagStyle } from '@/utils/tag-colors';
+import { Workspace } from '@/store/workspace-slice';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import request from '@/utils/request';
 import { getConversationStats } from '@/api/conversations';
 import { createAuthenticatedConsumer } from '@/utils/cable';
@@ -30,6 +40,8 @@ import {
   MessageCircle,
   User,
   ChevronRight,
+  ChevronDown,
+  Check,
   Inbox,
   Zap,
   AtSign,
@@ -56,6 +68,21 @@ interface NavItem {
 interface NavSection {
   label: string;
   items: NavItem[];
+}
+
+// Workspace face for the switcher: the operator profile avatar where there is
+// one, otherwise initials on the same deterministic palette the tag chips use,
+// so each workspace keeps a stable colour instead of a wall of grey.
+function WorkspaceAvatar({ ws, className }: { ws: Workspace; className?: string }) {
+  const [first, second] = ws.name.split(/\s+/);
+  return (
+    <Avatar className={cn('h-6 w-6 shrink-0', className)}>
+      {ws.avatar_url && <AvatarImage src={ws.avatar_url} alt="" />}
+      <AvatarFallback className="text-[10px] font-semibold leading-none" style={tagStyle(ws.name)}>
+        {getInitials(first, second, ws.name)}
+      </AvatarFallback>
+    </Avatar>
+  );
 }
 
 const sections: NavSection[] = [
@@ -217,6 +244,35 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     dispatch(clearEnvironment());
     dispatch(setActiveWorkspace(id));
     navigate('/');
+  };
+
+  // The active workspace's list comes from the store (refetched on every switch,
+  // so it reflects environments added since sign-in); the others come from the
+  // /users/me payload, which is enough to render and click through the tree.
+  const environmentsFor = (ws: { id: number; environments?: { id: number; name: string }[] }) =>
+    ws.id === activeWorkspaceId && environments.length ? environments : ws.environments || [];
+
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
+  const activeEnvironment = activeWorkspace
+    ? environmentsFor(activeWorkspace).find((e) => e.id === activeEnvironmentId)
+    : undefined;
+
+  const justSelectedRef = useRef(false);
+
+  // One click picks both. Setting the target environment up front (instead of
+  // clearing and waiting for the refetch to auto-select the first one) is what
+  // makes "switch straight to workspace B's UAT" possible — the refetch keeps
+  // the selection because it's in the new workspace's list.
+  const switchTo = (workspaceId: number, environmentId?: number) => {
+    justSelectedRef.current = true;
+    if (workspaceId !== activeWorkspaceId) {
+      dispatch(clearEnvironment());
+      dispatch(setActiveWorkspace(workspaceId));
+      if (environmentId) dispatch(setActiveEnvironment(environmentId));
+      navigate('/');
+    } else if (environmentId && environmentId !== activeEnvironmentId) {
+      dispatch(setActiveEnvironment(environmentId));
+    }
   };
 
   const handleLogout = () => {
@@ -390,28 +446,64 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             </div>
           </div>
         ))}
-        {/* Only shown to people who actually belong to more than one workspace,
-            so single-workspace users see no change. */}
-        {workspaces.length > 1 && (
-          <div className="mb-2">
-            <Select
-              value={String(activeWorkspaceId || '')}
-              onValueChange={(val) => handleWorkspaceChange(Number(val))}
+        {/* Belonging to more than one workspace collapses both pickers into one
+            tree, so switching workspace *and* environment is a single click.
+            Single-workspace users keep the plain environment select below. */}
+        {workspaces.length > 1 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-sm transition-colors hover:bg-accent">
+              {activeWorkspace && <WorkspaceAvatar ws={activeWorkspace} />}
+              <span className="mr-auto truncate">
+                {activeWorkspace?.name || 'Select workspace'}
+                {activeEnvironment && (
+                  <span className="text-muted-foreground"> / {activeEnvironment.name}</span>
+                )}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="w-[var(--radix-dropdown-menu-trigger-width)]"
+              // Radix hands focus back to the trigger on close, which leaves a
+              // focus ring sitting there after a pick. Skip that on an actual
+              // selection only — dismissing with Escape still returns focus.
+              onCloseAutoFocus={(e) => {
+                if (justSelectedRef.current) e.preventDefault();
+                justSelectedRef.current = false;
+              }}
             >
-              <SelectTrigger className="bg-card text-sm h-9 transition-colors">
-                <SelectValue placeholder="Select workspace" />
-              </SelectTrigger>
-              <SelectContent>
-                {workspaces.map((ws) => (
-                  <SelectItem key={ws.id} value={String(ws.id)}>
-                    {ws.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        {environments.length > 0 && (
+              {workspaces.map((ws) => {
+                const envs = environmentsFor(ws);
+                return (
+                  <div key={ws.id}>
+                    <DropdownMenuItem
+                      className="py-3 font-medium text-foreground"
+                      onSelect={() => switchTo(ws.id, envs[0]?.id)}
+                    >
+                      <WorkspaceAvatar ws={ws} className="mr-2" />
+                      <span className="truncate">{ws.name}</span>
+                      {ws.id === activeWorkspaceId && envs.length === 0 && (
+                        <Check className="ml-auto h-4 w-4 shrink-0" />
+                      )}
+                    </DropdownMenuItem>
+                    {envs.map((env) => (
+                      <DropdownMenuItem
+                        key={env.id}
+                        className="py-3 pl-11"
+                        onSelect={() => switchTo(ws.id, env.id)}
+                      >
+                        <span className="truncate">{env.name}</span>
+                        {ws.id === activeWorkspaceId && env.id === activeEnvironmentId && (
+                          <Check className="ml-auto h-4 w-4 shrink-0" />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (environments.length > 0 && (
           <Select
             value={String(activeEnvironmentId || '')}
             onValueChange={(val) => dispatch(setActiveEnvironment(Number(val)))}
@@ -427,7 +519,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
               ))}
             </SelectContent>
           </Select>
-        )}
+        ))}
       </div>
 
       <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">

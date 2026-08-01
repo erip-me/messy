@@ -148,9 +148,27 @@ class UsersController < ApplicationController
     @membership ||= @user.membership_for(@account)
   end
 
+  # Environments ride along so the SPA can offer one workspace/environment picker
+  # without a round trip per workspace. Name and id only — an environment's API
+  # key is never part of this list.
   def workspaces_for(user)
-    user.account_memberships.accepted.includes(:account).map do |m|
-      { id: m.account_id, name: m.account.name, role: m.role }
+    # An operator profile belongs to one workspace (user_id is unique), so the
+    # avatar is offered to that workspace's row only — not reused as this
+    # person's face everywhere.
+    profile = user.operator_profile
+    avatar_url =
+      if profile&.avatar&.attached?
+        Rails.application.routes.url_helpers.rails_blob_url(profile.avatar)
+      end
+
+    user.account_memberships.accepted.includes(account: :environments).map do |m|
+      {
+        id: m.account_id,
+        name: m.account.name,
+        role: m.role,
+        avatar_url: (avatar_url if profile&.account_id == m.account_id),
+        environments: m.account.environments.map { |e| { id: e.id, name: e.name } }
+      }
     end
   end
 

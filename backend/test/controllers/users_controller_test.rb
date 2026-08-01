@@ -27,6 +27,22 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert json["token"].present?
   end
 
+  # The workspace picker renders every workspace's environments from this one
+  # payload, so each list has to hold that workspace's environments and no others.
+  test "me lists environments per workspace" do
+    AccountMembership.create!(user: users(:admin), account: accounts(:other_co),
+                              role: :member, accepted_at: Time.current)
+
+    get "/users/me", headers: auth_headers(users(:admin)), as: :json
+
+    json = JSON.parse(response.body)
+    by_name = json["workspaces"].index_by { |w| w["name"] }
+    assert_equal ["Production", "Staging"],
+                 by_name["Acme Corp"]["environments"].map { |e| e["name"] }.sort
+    assert_equal [environments(:other_env).id],
+                 by_name["Other Company"]["environments"].map { |e| e["id"] }
+  end
+
   test "create creates user under current account" do
     assert_difference "User.count", 1 do
       post "/users", params: { name: "New User", email: "new@acme.com" },

@@ -6,6 +6,10 @@ export interface Workspace {
   name: string;
   // Mirrors AccountMembership#role, and feeds auth.user.role on a switch.
   role: 'admin' | 'member';
+  // Only what the picker needs. Absent on the pending (invitation) list.
+  environments?: { id: number; name: string }[];
+  // The operator profile avatar, on the one workspace that profile belongs to.
+  avatar_url?: string | null;
 }
 
 interface WorkspaceState {
