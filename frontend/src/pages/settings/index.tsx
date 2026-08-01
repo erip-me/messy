@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
 import { setCredentials } from "@/store/auth-slice";
+import { setWorkspaces } from "@/store/workspace-slice";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,25 +21,37 @@ import request from "@/utils/request";
 export function SettingsPage() {
   const dispatch = useDispatch();
   const { user, account, token } = useSelector((state: RootState) => state.auth);
+  const workspaces = useSelector((state: RootState) => state.workspace.workspaces);
+  const [name, setName] = useState(account?.name || "");
   const [trackingDomain, setTrackingDomain] = useState(account?.tracking_domain || "");
   const [retentionDays, setRetentionDays] = useState(account?.message_retention_days ?? 180);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    setName(account?.name || "");
     setTrackingDomain(account?.tracking_domain || "");
     setRetentionDays(account?.message_retention_days ?? 180);
-  }, [account?.tracking_domain, account?.message_retention_days]);
+  }, [account?.name, account?.tracking_domain, account?.message_retention_days]);
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      toast.error("Workspace name can't be empty");
+      return;
+    }
     setSaving(true);
     try {
       const res = await request.patch(`/accounts/${account?.id}`, {
         account: {
+          name: name.trim(),
           tracking_domain: trackingDomain.trim() || null,
           message_retention_days: retentionDays,
         },
       });
       dispatch(setCredentials({ user: user!, account: res.data, token: token! }));
+      // The switcher reads names from its own list, so rename it there too.
+      dispatch(
+        setWorkspaces(workspaces.map((w) => (w.id === res.data.id ? { ...w, name: res.data.name } : w)))
+      );
       toast.success("Settings saved");
     } catch {
       toast.error("Failed to save settings");
@@ -50,6 +63,37 @@ export function SettingsPage() {
   return (
     <div className="p-6 max-w-2xl">
       <h1 className="text-2xl font-bold mb-6">Account Settings</h1>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">Workspace Name</CardTitle>
+          <CardDescription>
+            How this workspace is named in the switcher and in emails we send about it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="workspace-name">Name</Label>
+              <Input
+                id="workspace-name"
+                placeholder="Acme Inc."
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleSave} disabled={saving} size="sm">
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
