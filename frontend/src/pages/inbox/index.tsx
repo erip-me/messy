@@ -450,7 +450,7 @@ export function InboxPage() {
               )}
             </div>
 
-            <div className="flex gap-1">
+            <div className="flex gap-1 py-1">
               {([
                 ["", "Open"],
                 ["resolved", "Resolved"],
