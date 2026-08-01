@@ -7,9 +7,13 @@
 #
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
-  # Frontend admin SPA
+  # Frontend admin SPA. FRONTEND_URL stays a single URL — it's also what mailer
+  # links and Stripe/OAuth returns are built from. CORS_EXTRA_ORIGINS (comma
+  # separated) is for the same SPA reached under another origin, e.g. the local
+  # .test host in front of the Vite port.
   allow do
-    origins ENV['FRONTEND_URL']
+    origins(*[ENV['FRONTEND_URL'], *ENV['CORS_EXTRA_ORIGINS'].to_s.split(',')]
+              .map { |o| o.to_s.strip }.reject(&:empty?))
 
     resource '*',
              headers: :any,
