@@ -51,6 +51,13 @@ jobs:
       - name: Install libpq (pg gem native extension)
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libpq-dev
 
+      # dotenv is ungrouped in the Gemfile, so it loads .env in the test env too.
+      # Without it EMAIL_FROM is nil, ApplicationMailer has no `from:`, and every
+      # mail-sending action 500s. This is the same `cp .env.example .env` step the
+      # README gives developers.
+      - name: Seed .env from the example
+        run: cp .env.example .env
+
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version-file: .ruby-version
