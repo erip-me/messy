@@ -1,0 +1,102 @@
+name: Release
+
+# Publishes two container images per tag:
+#   ghcr.io/<owner>/messy-backend:<tag>
+#   ghcr.io/<owner>/messy-frontend:<tag>
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  verify-tag:
+    name: Verify tag is on main
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # GitHub cannot filter tag events by branch, so enforce it here: the tagged
+      # commit must be reachable from main.
+      - name: Check tag is reachable from main
+        run: |
+          set -euo pipefail
+          # Explicit refspec: checkout@v4 configures a narrow fetch, so a bare
+          # `git fetch origin main` is not guaranteed to update the tracking ref.
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not reachable from main. Refusing to publish."
+            exit 1
+          fi
+          echo "Tag ${GITHUB_REF_NAME} is on main."
+
+      - name: Derive version
+        id: meta
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish ${{ matrix.component }} image
+    needs: verify-tag
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tags and labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/messy-${{ matrix.component }}
+          tags: |
+            type=raw,value=${{ needs.verify-tag.outputs.tag }}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.component }}
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Shares the cache warmed by the CI workflow on main.
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+
+      - name: Summary
+        run: |
+          {
+            echo "### Published \`${{ matrix.component }}\`"
+            echo
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo
+            echo "Use the \`${{ needs.verify-tag.outputs.tag }}\` reference for \`${{ matrix.component }}_image\` in \`deploy/prod/terraform.tfvars\`."
+          } >> "$GITHUB_STEP_SUMMARY"

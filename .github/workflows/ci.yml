@@ -1,0 +1,135 @@
+name: CI
+
+# Runs on every branch. Tags are handled by release.yml, so they are excluded
+# here to avoid building the same commit twice.
+on:
+  push:
+    branches: ['**']
+    tags-ignore: ['**']
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      # config/database.yml pins the test connections to user "postgres" with an
+      # empty password, so the server has to accept passwordless connections.
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      RAILS_ENV: test
+      DATABASE_HOST: localhost
+      DATABASE_PORT: 5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libpq (pg gem native extension)
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libpq-dev
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version-file: .ruby-version
+          bundler-cache: true
+          working-directory: backend
+
+      # Load all three schema dumps (primary, queue, cable) up front rather than
+      # relying on db:test:prepare — see the schema-sync section in CLAUDE.md.
+      - name: Prepare test database
+        run: bin/rails db:create db:schema:load
+
+      - name: Run tests
+        run: bin/rails test
+
+  frontend-check:
+    name: Frontend lint, build, unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      # yarn, not npm: package.json uses a `resolutions` block (a yarn feature),
+      # yarn.lock is what frontend/Dockerfile installs from, and the committed
+      # package-lock.json is currently out of sync with package.json so `npm ci`
+      # fails outright.
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Lint
+        run: yarn lint
+
+      # `vite build` only — same command the Docker image runs. `build:check`
+      # (tsc -b && vite build) is not used as the gate because `tsc -b` currently
+      # reports 8 pre-existing errors on main; it runs below, non-blocking.
+      - name: Build
+        run: yarn build
+
+      - name: Unit tests
+        run: yarn test:unit
+
+      # Informational until the existing type errors are cleared. Once they are,
+      # drop continue-on-error and fold this back into `yarn build:check`.
+      - name: Typecheck (non-blocking)
+        continue-on-error: true
+        run: yarn tsc -b
+
+  docker-build:
+    name: Docker build (${{ matrix.component }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [backend, frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # No build args or secrets: the backend takes SECRET_KEY_BASE/RAILS_MASTER_KEY
+      # at runtime, and the frontend injects its config at container start via env.sh.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.component }}
+          push: false
+          platforms: linux/amd64
+          provenance: false
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
