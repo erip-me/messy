@@ -41,12 +41,12 @@ variable "tls_secret_name" {
 
 variable "backend_image" {
   type        = string
-  description = "Backend image, built from backend/ and pushed to your registry."
+  description = "Backend image. Either a published release (ghcr.io/erip-me/messy-backend:vX.Y.Z) or your own build of backend/ pushed to your registry. Pin a tag rather than using :latest, so a redeploy is never a surprise upgrade."
 }
 
 variable "frontend_image" {
   type        = string
-  description = "Frontend image, built from frontend/ and pushed to your registry."
+  description = "Frontend image. Either a published release (ghcr.io/erip-me/messy-frontend:vX.Y.Z) or your own build of frontend/ pushed to your registry."
 }
 
 variable "backend_replicas" {

@@ -65,6 +65,17 @@ docker compose up -d --build
 
 Then open http://localhost:8080 and sign up. Full guide (including outbound email setup, which magic-link login needs): [Docker Compose deployment](https://messy.sh/docs/docker-compose). Running Kubernetes? Use the [Terraform deployment](https://messy.sh/docs/terraform) from `deploy/`.
 
+### Container images
+
+Every tagged release publishes prebuilt `linux/amd64` images to GitHub Container Registry, so Kubernetes and other registry-based deployments don't have to build from source:
+
+```sh
+docker pull ghcr.io/erip-me/messy-backend:v1.0.0
+docker pull ghcr.io/erip-me/messy-frontend:v1.0.0
+```
+
+Both also carry `:latest`. Pin a version tag for anything you care about, since `latest` moves with every release. The Compose setup above builds from source on purpose, which is what you want while modifying the code. See [RELEASING.md](RELEASING.md) for how releases are cut.
+
 Prefer not to run it yourself? [Messy Cloud](https://messy.sh/pricing) has a BYOK plan (we host, your provider keys) and a managed plan.
 
 ## Repository layout
