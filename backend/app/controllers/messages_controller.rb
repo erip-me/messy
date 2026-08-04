@@ -1,7 +1,8 @@
 class MessagesController < ApplicationController
   include ApiAuthentication
 
-  before_action :load_message, only: %i[ show update destroy retry_delivery attachment ]
+  before_action :load_message, only: %i[ show update destroy retry_delivery ]
+  before_action :load_message_for_attachment, only: %i[ attachment ]
   before_action :validate_type_param, only: %i[ create ]
   before_action :load_template_by_trigger, only: %i[ trigger ]
   before_action :require_active_billing!, only: %i[ create trigger ]
@@ -174,6 +175,15 @@ class MessagesController < ApplicationController
   end
 
   private
+    # Attachment URLs are opened as plain browser navigations (an <a href>), so they
+    # carry no X-Environment-Id header and load_message's @environment silently falls
+    # back to the account's *first* environment — 404ing every attachment on a message
+    # that lives in any other one. A signed-in user has access to the whole workspace,
+    # so scope to the account; API-key callers stay pinned to their key's environment.
+    def load_message_for_attachment
+      @message = (current_user ? @account : @environment).messages.find(params[:id])
+    end
+
     # Parses a date filter value (YYYY-MM-DD or an ISO 8601 timestamp), returning
     # nil on anything unparseable so the caller can respond 422 rather than raise.
     def parse_filter_date(value)

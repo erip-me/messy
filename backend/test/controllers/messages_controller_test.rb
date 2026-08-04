@@ -111,6 +111,32 @@ class MessagesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Updated Subject", json["subject"]
   end
 
+  # Attachment links are plain browser navigations with no X-Environment-Id, so the
+  # request must not be scoped to whichever environment happens to come back first.
+  test "attachment downloads for a signed-in user regardless of environment" do
+    message = accounts(:acme).messages.create!(
+      environment: environments(:staging), type: "EmailMessage",
+      to: "user@example.com", subject: "Contract", body: "<p>See attached.</p>"
+    )
+    message.attachments.attach(io: StringIO.new("%PDF-1.4 fake"), filename: "lease.pdf", content_type: "application/pdf")
+
+    get "/messages/#{message.id}/attachments/#{message.attachments.first.id}?download=1",
+        headers: auth_headers(users(:admin))
+
+    assert_response :success
+    assert_equal "%PDF-1.4 fake", response.body
+  end
+
+  test "attachment is not readable across workspaces" do
+    message = messages(:email_one)
+    message.attachments.attach(io: StringIO.new("secret"), filename: "s.txt", content_type: "text/plain")
+
+    get "/messages/#{message.id}/attachments/#{message.attachments.first.id}",
+        headers: auth_headers(users(:other_user))
+
+    assert_response :not_found
+  end
+
   test "update rejects editing an already-sent message" do
     message = messages(:email_one) # status: sent
     patch "/messages/#{message.id}",
