@@ -13,6 +13,12 @@ resource "kubernetes_ingress_v1" "this" {
     annotations = var.annotations
   }
 
+  # Ignore only the Rancher-injected key. The rest of this map is var.annotations
+  # (nginx tuning, body size, timeouts) and must stay under Terraform's control.
+  lifecycle {
+    ignore_changes = [metadata[0].annotations["field.cattle.io/publicEndpoints"]]
+  }
+
   spec {
     ingress_class_name = var.class_name
 

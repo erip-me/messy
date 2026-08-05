@@ -13,6 +13,12 @@ resource "kubernetes_deployment" "this" {
     labels    = local.labels
   }
 
+  # See the backend module: Rancher-injected annotation, ignored per-key so it
+  # does not churn on every plan.
+  lifecycle {
+    ignore_changes = [metadata[0].annotations["field.cattle.io/publicEndpoints"]]
+  }
+
   spec {
     replicas = var.replicas
 

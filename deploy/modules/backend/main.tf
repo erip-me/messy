@@ -73,6 +73,14 @@ resource "kubernetes_deployment" "this" {
     labels    = local.labels
   }
 
+  # Rancher writes this annotation onto anything it can reach through an ingress.
+  # Terraform does not manage it, so without this every plan offers to strip it
+  # and Rancher writes it straight back. Ignoring one key rather than the whole
+  # map keeps real annotation changes visible. No-op on non-Rancher clusters.
+  lifecycle {
+    ignore_changes = [metadata[0].annotations["field.cattle.io/publicEndpoints"]]
+  }
+
   spec {
     replicas = var.replicas
 
