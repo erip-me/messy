@@ -1,5 +1,9 @@
 # Self-hosted Messy: Postgres + Rails API + Solid Queue worker + frontend SPA.
 # Copy .env.example to .env, adjust, then: docker compose up -d
+#
+# Pulls the published release images by default. Set MESSY_VERSION in .env to pin
+# a release. To run your own build of the working tree instead, add --build: the
+# build: stanzas below stay in place for exactly that.
 # Docs: https://messy.sh/docs/docker-compose
 services:
   db:
@@ -18,7 +22,7 @@ services:
 
   backend:
     build: ./backend
-    image: messy-backend
+    image: ghcr.io/erip-me/messy-backend:${MESSY_VERSION:-latest}
     command: bash -c "bundle exec rails db:prepare && bundle exec puma -C config/puma.rb"
     environment: &backend_env
       RAILS_ENV: production
@@ -54,7 +58,7 @@ services:
       start_period: 90s
 
   worker:
-    image: messy-backend
+    image: ghcr.io/erip-me/messy-backend:${MESSY_VERSION:-latest}
     command: bundle exec rake solid_queue:start
     environment: *backend_env
     volumes:
@@ -65,6 +69,7 @@ services:
 
   frontend:
     build: ./frontend
+    image: ghcr.io/erip-me/messy-frontend:${MESSY_VERSION:-latest}
     environment:
       MESSY_API_URL: ${API_URL:-http://localhost:8081}
     ports:

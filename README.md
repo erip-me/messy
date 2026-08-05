@@ -60,8 +60,10 @@ git clone https://github.com/erip-me/messy.git
 cd messy
 cp .env.example .env
 echo "SECRET_KEY_BASE=$(openssl rand -hex 64)" >> .env
-docker compose up -d --build
+docker compose up -d
 ```
+
+That pulls the published release images, so it starts in about a minute. Add `--build` to build from your working tree instead, which is what you want once you start changing code.
 
 Then open http://localhost:8080 and sign up. Full guide (including outbound email setup, which magic-link login needs): [Docker Compose deployment](https://messy.sh/docs/docker-compose). Running Kubernetes? Use the [Terraform deployment](https://messy.sh/docs/terraform) from `deploy/`.
 
@@ -74,7 +76,13 @@ docker pull ghcr.io/erip-me/messy-backend:v1.0.0
 docker pull ghcr.io/erip-me/messy-frontend:v1.0.0
 ```
 
-Both also carry `:latest`. Pin a version tag for anything you care about, since `latest` moves with every release. The Compose setup above builds from source on purpose, which is what you want while modifying the code. See [RELEASING.md](RELEASING.md) for how releases are cut.
+Both also carry `:latest`, which is what Compose uses unless you set `MESSY_VERSION` in `.env`:
+
+```sh
+MESSY_VERSION=v1.0.0
+```
+
+Pin it for anything you care about, so upgrading is a decision rather than whatever a pull hands you. See [RELEASING.md](RELEASING.md) for how releases are cut.
 
 Prefer not to run it yourself? [Messy Cloud](https://messy.sh/pricing) has a BYOK plan (we host, your provider keys) and a managed plan.
 
