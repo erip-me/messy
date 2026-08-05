@@ -15,6 +15,9 @@ class TemplatesController < ApplicationController
     end
 
     @templates = @templates.where(channel: params[:channel]) if params[:channel].present?
+    # Neither branch was ordered, so the list came back in whatever order Postgres
+    # chose and could reshuffle between identical requests.
+    @templates = @templates.order(:id)
 
     render json: TemplateResource.new(@templates).serialize
   end

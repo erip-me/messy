@@ -16,7 +16,10 @@ class TemplatesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     json = JSON.parse(response.body)
-    email_template = json.find { |t| t["trigger"] == "user.signup" }
+    # The user.signup trigger has both an email and an SMS fixture, so match on
+    # the id — picking the first row with that trigger asserted on whichever one
+    # the database happened to return.
+    email_template = json.find { |t| t["id"] == templates(:welcome).id }
     assert_equal "email", email_template["channel"]
     assert_equal "html", email_template["body_format"]
   end

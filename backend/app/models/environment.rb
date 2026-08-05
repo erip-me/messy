@@ -2,7 +2,12 @@ class Environment < ApplicationRecord
   belongs_to :account
   belongs_to :notification_email_integration, class_name: 'Integration', optional: true
   belongs_to :campaign_email_integration, class_name: 'Integration', optional: true
-  has_many :rules, dependent: :destroy
+  # Ordered on the association because rule precedence is first-match-wins
+  # (see #check_rules_for_channel?). Without it the winner between a deny and an
+  # allow matching the same recipient was whatever order Postgres returned, so
+  # the same message could be delivered or blocked from one send to the next.
+  # Creation order is the precedence users see in the rules list.
+  has_many :rules, -> { order(:id) }, dependent: :destroy
   has_many :integrations, dependent: :destroy
   has_many :templates, dependent: :destroy
   has_many :messages, dependent: :destroy

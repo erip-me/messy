@@ -22,7 +22,15 @@ module ApplicationHelper
     def load_template_by_trigger
       scope = @environment.templates.where(trigger: params[:trigger])
       scope = scope.where(channel: params[:channel]) if params[:channel].present?
-      scope = scope.order(created_at: :desc)
+      # One trigger can have a template per channel. Order is load-bearing here
+      # because only the first row is used:
+      #   - email first, so adding an SMS template for an existing trigger cannot
+      #     silently reroute callers who never passed a channel (no-op once
+      #     params[:channel] has already narrowed the scope);
+      #   - then newest, the documented "latest template wins" behaviour;
+      #   - then id, because fixtures and bulk imports create rows within the same
+      #     clock tick and a created_at tie left the choice to Postgres.
+      scope = scope.order(Arel.sql("channel = 'email' DESC"), created_at: :desc, id: :desc)
 
       unless @template = scope.first
         return render json: { error: "Template not found" }, status: :unprocessable_entity

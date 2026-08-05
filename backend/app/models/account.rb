@@ -62,7 +62,8 @@ class Account < ApplicationRecord
   has_many :deliveries, dependent: :destroy
   has_many :customer_activities, dependent: :destroy
   has_many :messages, dependent: :destroy
-  has_many :rules, dependent: :destroy
+  # Same first-match-wins precedence as Environment#rules.
+  has_many :rules, -> { order(:id) }, dependent: :destroy
   has_many :templates, dependent: :destroy
   has_many :folders, dependent: :destroy
   has_many :integrations, dependent: :destroy
