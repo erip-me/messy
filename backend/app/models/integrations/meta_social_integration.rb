@@ -14,6 +14,8 @@ class MetaSocialIntegration < Integration
   GRAPH = "https://graph.facebook.com/v21.0".freeze
   READY_POLL_ATTEMPTS = 20
   READY_POLL_SECONDS = 3
+  PUBLISH_RETRY_ATTEMPTS = 3
+  PUBLISH_RETRY_SECONDS = 5
   CHANNELS = %w[facebook instagram].freeze
 
   class PublishError < StandardError; end
@@ -112,8 +114,7 @@ class MetaSocialIntegration < Integration
     id = container["id"] or raise PublishError, "No IG container id returned"
 
     wait_until_ready(id, token)
-    res = graph_post("#{GRAPH}/#{ig_user_id}/media_publish", creation_id: id, token: token)
-    res["id"] or raise PublishError, "No published IG media id returned"
+    publish_container(ig_user_id, id, token, "media")
   end
 
   # Publish an ordered set of images as a native Facebook multi-photo (carousel)
@@ -153,8 +154,7 @@ class MetaSocialIntegration < Integration
     id = container["id"] or raise PublishError, "No IG carousel container id returned"
 
     wait_until_ready(id, token)
-    res = graph_post("#{GRAPH}/#{ig_user_id}/media_publish", creation_id: id, token: token)
-    res["id"] or raise PublishError, "No published IG carousel id returned"
+    publish_container(ig_user_id, id, token, "carousel")
   end
 
   # A page-scoped access token, minted from the system token and cached.
@@ -189,6 +189,24 @@ class MetaSocialIntegration < Integration
       sleep READY_POLL_SECONDS
     end
     raise PublishError, "Instagram media wasn't ready in time"
+  end
+
+  # Publish a ready container. Meta can still reject media_publish as "not ready"
+  # immediately after the container reports FINISHED, so the transient is retried
+  # rather than surfaced — one hiccup used to leave the day `failed` with the
+  # other channels already live, and the only reachable manual retry re-posted
+  # them. Any other Meta error raises on the first attempt.
+  def publish_container(ig_user_id, container_id, token, label)
+    attempts = 0
+    begin
+      res = graph_post("#{GRAPH}/#{ig_user_id}/media_publish", creation_id: container_id, token: token)
+      res["id"] or raise PublishError, "No published IG #{label} id returned"
+    rescue PublishError => e
+      raise unless e.message.match?(/not ready/i) && (attempts += 1) < PUBLISH_RETRY_ATTEMPTS
+
+      sleep PUBLISH_RETRY_SECONDS
+      retry
+    end
   end
 
   # POST to the Graph API. Uses the system token unless a :token is given.

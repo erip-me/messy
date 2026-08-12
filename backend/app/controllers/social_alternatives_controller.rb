@@ -31,8 +31,10 @@ class SocialAlternativesController < ApplicationController
     post = @alternative.social_post
     return render json: { error: "This region has no configured social account" }, status: :unprocessable_entity unless post.social_region.configured?
 
-    slot = params[:slot].presence || (@alternative.feed_media.attached? ? "feed" : "reel")
-    return render json: { error: "This variant has no media to post" }, status: :unprocessable_entity unless @alternative.media_for(slot)
+    # Fall back through every slot the variant could fill, carousel included — a
+    # carousel-only variant used to resolve to "reel" and read as medialess.
+    slot = params[:slot].presence || %w[feed reel carousel].find { |s| @alternative.has_slot_media?(s) }
+    return render json: { error: "This variant has no media to post" }, status: :unprocessable_entity unless slot && @alternative.has_slot_media?(slot)
 
     # Restrict an explicit pick to the channels this region can actually reach
     # (Facebook/Instagram and/or LinkedIn); nil falls back to the region default.

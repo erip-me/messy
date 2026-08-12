@@ -91,6 +91,57 @@ class SocialPostsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "publish_now rejects a pending day the job would silently drop" do
+    @post.update_columns(feed_alternative_id: @alt.id, status: SocialPost.statuses[:pending])
+
+    assert_no_enqueued_jobs do
+      post "/social_posts/#{@post.id}/publish_now", headers: auth_headers(@admin), as: :json
+    end
+    assert_response :unprocessable_entity
+  end
+
+  test "publish_now rejects a day that has already been posted" do
+    @post.update_columns(feed_alternative_id: @alt.id, status: SocialPost.statuses[:posted])
+
+    assert_no_enqueued_jobs do
+      post "/social_posts/#{@post.id}/publish_now", headers: auth_headers(@admin), as: :json
+    end
+    assert_response :unprocessable_entity
+  end
+
+  test "publish_now retries a failed day after its own date" do
+    past = @region.social_posts.create!(post_date: @region.local_today - 2.days)
+    alt = past.social_alternatives.create!(source: :generated, position: 0, headline: "H")
+    alt.feed_media.attach(io: StringIO.new("img"), filename: "f.png", content_type: "image/png")
+    past.update_columns(feed_alternative_id: alt.id, status: SocialPost.statuses[:failed])
+
+    assert_enqueued_with(job: PublishSocialPostJob, args: [past.id]) do
+      post "/social_posts/#{past.id}/publish_now", headers: auth_headers(@admin), as: :json
+    end
+    assert_response :success
+  end
+
+  test "publish_now still refuses a past day that never failed" do
+    past = @region.social_posts.create!(post_date: @region.local_today - 2.days)
+    alt = past.social_alternatives.create!(source: :generated, position: 0, headline: "H")
+    alt.feed_media.attach(io: StringIO.new("img"), filename: "f.png", content_type: "image/png")
+    past.update_columns(feed_alternative_id: alt.id, status: SocialPost.statuses[:ready])
+
+    assert_no_enqueued_jobs do
+      post "/social_posts/#{past.id}/publish_now", headers: auth_headers(@admin), as: :json
+    end
+    assert_response :unprocessable_entity
+  end
+
+  test "publish_now retries a failed day" do
+    @post.update_columns(feed_alternative_id: @alt.id, status: SocialPost.statuses[:failed])
+
+    assert_enqueued_with(job: PublishSocialPostJob, args: [@post.id]) do
+      post "/social_posts/#{@post.id}/publish_now", headers: auth_headers(@admin), as: :json
+    end
+    assert_response :success
+  end
+
   test "members can view a region's calendar" do
     get "/social_regions/#{@region.id}/calendar", headers: auth_headers(users(:regular)), as: :json
     assert_response :success

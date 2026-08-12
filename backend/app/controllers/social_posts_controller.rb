@@ -74,10 +74,17 @@ class SocialPostsController < ApplicationController
     render json: SocialPostDetailResource.new(@post.reload).to_h, status: :created
   end
 
-  # POST /social_posts/:id/publish_now — manual publish/retry for today's ready-or-failed day.
+  # POST /social_posts/:id/publish_now — manual publish of today's ready day, or a
+  # retry of a failed one (still allowed after its date, since retries are idempotent).
   def publish_now
-    return render json: { error: "Only today's posts can be published" }, status: :unprocessable_entity unless @post.postable_today?
     return render json: { error: "Nothing with an image or video is selected to publish" }, status: :unprocessable_entity unless @post.publishable_media?
+    # These mirror PublishSocialPostJob's own guards. Without them the job accepts
+    # the work and drops it silently — no delivery row, no publish_error, a 200
+    # that posted nothing. Keep the two in step when either side gains a guard.
+    return render json: { error: "This region is paused" }, status: :unprocessable_entity unless @post.social_region.active?
+    return render json: { error: "This day has already been posted" }, status: :unprocessable_entity if @post.posted?
+    return render json: { error: "Mark the day ready before publishing" }, status: :unprocessable_entity unless @post.ready? || @post.failed?
+    return render json: { error: "Only today's posts can be published; a past day can only be retried after a failure" }, status: :unprocessable_entity unless @post.postable_today? || @post.failed?
 
     PublishSocialPostJob.perform_later(@post.id)
     render json: SocialPostDetailResource.new(@post).to_h

@@ -11,8 +11,12 @@ class PublishSocialPostJob < ApplicationJob
     post = SocialPost.find_by(id: post_id)
     return unless post
     return unless post.social_region.active?
-    return unless post.postable_today?
-    return unless post.ready? || post.failed?
+    # A ready day posts only on its own date (never a past day readied late). A
+    # failed day stays retryable afterwards: this path is idempotent, so it fills
+    # in the missing channels only. Without that the sole reachable retry for a
+    # part-posted day was the ad-hoc one, which re-posts what already went out.
+    # The scheduler can't reach a past day either way — it sweeps today's `ready`.
+    return unless post.failed? || (post.ready? && post.postable_today?)
 
     SocialPublisher.publish_post(post)
   end
