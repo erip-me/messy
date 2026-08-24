@@ -27,7 +27,7 @@ class FcmIntegration < Integration
 
   def deliver!(message, recipient = nil)
     to = recipient || message.to
-    tokens = resolve_tokens(to, message.account)
+    tokens = resolve_tokens(to, message.account, message.environment)
 
     raise NoTokensError, "No device tokens found for #{to}" if tokens.empty?
 
@@ -90,7 +90,7 @@ class FcmIntegration < Integration
     end
   end
 
-  def resolve_tokens(to, account)
+  def resolve_tokens(to, account, env = nil)
     # If `to` looks like a device token (long alphanumeric string), use it directly
     if to.length > 50 && !to.include?("@")
       return [to]
@@ -100,21 +100,24 @@ class FcmIntegration < Integration
     customer = account.customers.find_by(email: to.downcase.strip)
     return [] unless customer
 
-    customer.device_tokens.active.for_platform(target_platforms).pluck(:token)
+    customer.device_tokens.active.for_platform(target_platforms(env)).pluck(:token)
   end
 
   # When a separate APNs integration exists, FCM only handles Android tokens.
   # Otherwise FCM proxies to both Android and iOS via its built-in APNs relay.
-  def target_platforms
-    @target_platforms ||= begin
-      has_apns = if environment
-        environment.integrations.where(type: ApnsIntegration.name, active: true).exists? ||
-          environment.account.integrations.where(type: ApnsIntegration.name, environment_id: nil, active: true).exists?
-      else
-        false
-      end
+  #
+  # Resolve against the *message's* environment, not this integration's own. An
+  # account-level FCM row (environment_id nil) has no `environment`, so keying off
+  # `self` pinned has_apns to false and FCM kept claiming iOS tokens even with an
+  # APNs integration configured, failing every one against Firebase's APNs relay.
+  # Not memoized for the same reason: one integration serves many environments.
+  def target_platforms(env = nil)
+    env ||= environment
+    has_apns = env.present? && (
+      env.integrations.where(type: ApnsIntegration.name, active: true).exists? ||
+        env.account.integrations.where(type: ApnsIntegration.name, environment_id: nil, active: true).exists?
+    )
 
-      has_apns ? [:android] : [:android, :ios]
-    end
+    has_apns ? [:android] : [:android, :ios]
   end
 end

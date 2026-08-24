@@ -34,20 +34,23 @@ class FcmIntegrationTest < ActiveSupport::TestCase
   test "resolve_tokens excludes ios when APNs integration exists" do
     fcm = integrations(:fcm)
     # APNs is active in fixtures, so FCM should only take android
-    fcm.instance_variable_set(:@target_platforms, nil) # clear memoization
-
     tokens = fcm.send(:resolve_tokens, "john@example.com", accounts(:acme))
     assert_includes tokens, device_tokens(:johns_android).token
     assert_not_includes tokens, device_tokens(:johns_iphone).token
   end
 
-  test "target_platforms is memoized" do
-    fcm = integrations(:fcm)
-    fcm.instance_variable_set(:@target_platforms, nil)
+  test "an account-level FCM sees APNs through the message's environment" do
+    # environment_id nil, so the integration has no environment of its own; the
+    # APNs check has to run against the environment the message is sent in, or
+    # FCM keeps claiming iOS tokens and fails them against Firebase's relay.
+    fcm = FcmIntegration.create!(
+      account: accounts(:acme), environment: nil, active: true,
+      config: { "project_id" => "test-project", "server_key" => "test_server_key" }
+    )
 
-    result1 = fcm.send(:target_platforms)
-    result2 = fcm.send(:target_platforms)
-    assert_same result1, result2
+    tokens = fcm.send(:resolve_tokens, "john@example.com", accounts(:acme), environments(:production))
+    assert_includes tokens, device_tokens(:johns_android).token
+    assert_not_includes tokens, device_tokens(:johns_iphone).token
   end
 
   test "build_fcm_client uses StringIO for service_account_json" do
