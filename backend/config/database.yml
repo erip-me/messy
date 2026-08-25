@@ -1,7 +1,13 @@
+# Pool size is a per-process cap, and every Puma worker and every forked
+# Solid Queue worker opens its own pool for each of primary/queue/cable — so a
+# pool wider than the process's thread count just buys more connections on a
+# shared Postgres for nothing. Keep primary == RAILS_MAX_THREADS (Puma's thread
+# count), and give queue two spare slots for Solid Queue's claim/heartbeat
+# threads (it refuses to boot if a worker's queue pool < its `threads`).
 default: &default
   adapter: postgresql
   encoding: unicode
-  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 10 } %>
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   host: <%= ENV['DATABASE_HOST'] || 'localhost' %>
   port: <%= ENV['DATABASE_PORT'] || 5432 %>
 
@@ -16,12 +22,14 @@ development:
     database: <%= ENV['DATABASE_NAME'] || 'messy' %>
     username: <%= ENV['DATABASE_USERNAME'] || 'postgres' %>
     password: <%= ENV['DATABASE_PASSWORD'] || '' %>
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 2 %>
     migrations_paths: db/queue_migrate
   cable:
     <<: *default
     database: <%= ENV['DATABASE_NAME'] || 'messy' %>
     username: <%= ENV['DATABASE_USERNAME'] || 'postgres' %>
     password: <%= ENV['DATABASE_PASSWORD'] || '' %>
+    pool: 3
     migrations_paths: db/cable_migrate
 
 test:
@@ -35,12 +43,14 @@ test:
     database: messy_test
     username: postgres
     password:
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 2 %>
     migrations_paths: db/queue_migrate
   cable:
     <<: *default
     database: messy_test
     username: postgres
     password:
+    pool: 3
     migrations_paths: db/cable_migrate
 
 production:
@@ -50,9 +60,10 @@ production:
   queue:
     <<: *default
     url: <%= ENV['DATABASE_URL'] %>
-    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 10 } %>
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 2 %>
     migrations_paths: db/queue_migrate
   cable:
     <<: *default
     url: <%= ENV['DATABASE_URL'] %>
+    pool: 3
     migrations_paths: db/cable_migrate
