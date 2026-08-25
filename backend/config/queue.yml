@@ -6,14 +6,19 @@ default: &default
     # One process for the transactional queues. Every forked worker process opens
     # its own primary+queue connection pools, so process count — not thread count —
     # is what drains a shared Postgres. Low-volume queues go first in the list so a
-    # "default" backlog can't starve them.
-    - queues: "email_ingestion,list_cleanup,default"
+    # "default" backlog can't starve them (Solid Queue polls the list in order).
+    #
+    # This MUST be a YAML list. Solid Queue does `Array(queues)` and never splits on
+    # commas, so "a,b,c" becomes one queue literally named "a,b,c" — the worker then
+    # boots, heartbeats and polls forever while matching no jobs at all. See
+    # test/config/queue_coverage_test.rb, which fails if any queue loses its worker.
+    - queues: [ email_ingestion, list_cleanup, default ]
       threads: 5
       processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
       polling_interval: 0.5
     # Bulk sends stay on their own process: a large campaign must not starve
     # transactional delivery.
-    - queues: "campaigns"
+    - queues: [ campaigns ]
       threads: 5
       processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
       polling_interval: 0.5
@@ -22,7 +27,7 @@ default: &default
     # finished-jobs backlog, prune, auto-close — run on their own threads and
     # cannot starve the transactional queues. Without a worker on this queue,
     # recurring tasks (drip_sweep, prune, mailbox polling, digests) never run.
-    - queues: "solid_queue_recurring"
+    - queues: [ solid_queue_recurring ]
       threads: 2
       processes: 1
       polling_interval: 1
