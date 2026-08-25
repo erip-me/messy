@@ -4,21 +4,11 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store';
 import { logout, setCredentials } from '@/store/auth-slice';
 import nameLogo from '@/assets/nameLogo.png';
-import { setEnvironments, setActiveEnvironment, clearEnvironment } from '@/store/environment-slice';
+import { setEnvironments, clearEnvironment } from '@/store/environment-slice';
 import { setWorkspaces, setPendingWorkspaces, setActiveWorkspace } from '@/store/workspace-slice';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getInitials } from '@/utils/initials';
-import { tagStyle } from '@/utils/tag-colors';
-import { Workspace } from '@/store/workspace-slice';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { WorkspaceSwitcher } from '@/components/layout/workspace-switcher';
 import request from '@/utils/request';
 import { getConversationStats } from '@/api/conversations';
 import { createAuthenticatedConsumer } from '@/utils/cable';
@@ -40,8 +30,6 @@ import {
   MessageCircle,
   User,
   ChevronRight,
-  ChevronDown,
-  Check,
   Inbox,
   Zap,
   AtSign,
@@ -68,21 +56,6 @@ interface NavItem {
 interface NavSection {
   label: string;
   items: NavItem[];
-}
-
-// Workspace face for the switcher: the operator profile avatar where there is
-// one, otherwise initials on the same deterministic palette the tag chips use,
-// so each workspace keeps a stable colour instead of a wall of grey.
-function WorkspaceAvatar({ ws, className }: { ws: Workspace; className?: string }) {
-  const [first, second] = ws.name.split(/\s+/);
-  return (
-    <Avatar className={cn('h-6 w-6 shrink-0', className)}>
-      {ws.avatar_url && <AvatarImage src={ws.avatar_url} alt="" />}
-      <AvatarFallback className="text-[10px] font-semibold leading-none" style={tagStyle(ws.name)}>
-        {getInitials(first, second, ws.name)}
-      </AvatarFallback>
-    </Avatar>
-  );
 }
 
 const sections: NavSection[] = [
@@ -131,8 +104,6 @@ function sectionMatchesPath(section: NavSection, pathname: string): boolean {
 
 export function Sidebar({ onNavigate }: SidebarProps = {}) {
   const user = useSelector((state: RootState) => state.auth.user);
-  const environments = useSelector((state: RootState) => state.environment.environments);
-  const activeEnvironmentId = useSelector((state: RootState) => state.environment.activeEnvironmentId);
   const workspaces = useSelector((state: RootState) => state.workspace.workspaces);
   const pendingWorkspaces = useSelector((state: RootState) => state.workspace.pendingWorkspaces);
   const activeWorkspaceId = useSelector((state: RootState) => state.workspace.activeWorkspaceId);
@@ -176,10 +147,18 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
 
   // Re-fetched whenever the workspace changes: environments belong to a workspace,
   // so the previous workspace's list must not linger in the picker.
+  //
+  // The `stale` flag matters: switching workspace fires a second fetch while the
+  // first is still in flight, and if the old workspace's response lands last it
+  // overwrites the list. `setEnvironments` then drops the just-picked environment
+  // (not in that list) and auto-selects a foreign one — so picking "workspace B /
+  // staging" silently lands on one of workspace A's environments.
   useEffect(() => {
+    let stale = false;
     const fetchEnvironments = async () => {
       try {
         const res = await request.get('/environments');
+        if (stale) return;
         const envs = Array.isArray(res.data) ? res.data : res.data?.environments || [];
         dispatch(setEnvironments(envs));
       } catch (e) {
@@ -187,6 +166,9 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
       }
     };
     fetchEnvironments();
+    return () => {
+      stale = true;
+    };
   }, [dispatch, activeWorkspaceId]);
 
   const refreshWorkspaces = async () => {
@@ -244,35 +226,6 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     dispatch(clearEnvironment());
     dispatch(setActiveWorkspace(id));
     navigate('/');
-  };
-
-  // The active workspace's list comes from the store (refetched on every switch,
-  // so it reflects environments added since sign-in); the others come from the
-  // /users/me payload, which is enough to render and click through the tree.
-  const environmentsFor = (ws: { id: number; environments?: { id: number; name: string }[] }) =>
-    ws.id === activeWorkspaceId && environments.length ? environments : ws.environments || [];
-
-  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
-  const activeEnvironment = activeWorkspace
-    ? environmentsFor(activeWorkspace).find((e) => e.id === activeEnvironmentId)
-    : undefined;
-
-  const justSelectedRef = useRef(false);
-
-  // One click picks both. Setting the target environment up front (instead of
-  // clearing and waiting for the refetch to auto-select the first one) is what
-  // makes "switch straight to workspace B's UAT" possible — the refetch keeps
-  // the selection because it's in the new workspace's list.
-  const switchTo = (workspaceId: number, environmentId?: number) => {
-    justSelectedRef.current = true;
-    if (workspaceId !== activeWorkspaceId) {
-      dispatch(clearEnvironment());
-      dispatch(setActiveWorkspace(workspaceId));
-      if (environmentId) dispatch(setActiveEnvironment(environmentId));
-      navigate('/');
-    } else if (environmentId && environmentId !== activeEnvironmentId) {
-      dispatch(setActiveEnvironment(environmentId));
-    }
   };
 
   const handleLogout = () => {
@@ -446,80 +399,8 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             </div>
           </div>
         ))}
-        {/* Belonging to more than one workspace collapses both pickers into one
-            tree, so switching workspace *and* environment is a single click.
-            Single-workspace users keep the plain environment select below. */}
-        {workspaces.length > 1 ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-sm transition-colors hover:bg-accent">
-              {activeWorkspace && <WorkspaceAvatar ws={activeWorkspace} />}
-              <span className="mr-auto truncate">
-                {activeWorkspace?.name || 'Select workspace'}
-                {activeEnvironment && (
-                  <span className="text-muted-foreground"> / {activeEnvironment.name}</span>
-                )}
-              </span>
-              <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="start"
-              className="w-[var(--radix-dropdown-menu-trigger-width)]"
-              // Radix hands focus back to the trigger on close, which leaves a
-              // focus ring sitting there after a pick. Skip that on an actual
-              // selection only — dismissing with Escape still returns focus.
-              onCloseAutoFocus={(e) => {
-                if (justSelectedRef.current) e.preventDefault();
-                justSelectedRef.current = false;
-              }}
-            >
-              {workspaces.map((ws) => {
-                const envs = environmentsFor(ws);
-                return (
-                  <div key={ws.id}>
-                    <DropdownMenuItem
-                      className="py-3 font-medium text-foreground"
-                      onSelect={() => switchTo(ws.id, envs[0]?.id)}
-                    >
-                      <WorkspaceAvatar ws={ws} className="mr-2" />
-                      <span className="truncate">{ws.name}</span>
-                      {ws.id === activeWorkspaceId && envs.length === 0 && (
-                        <Check className="ml-auto h-4 w-4 shrink-0" />
-                      )}
-                    </DropdownMenuItem>
-                    {envs.map((env) => (
-                      <DropdownMenuItem
-                        key={env.id}
-                        className="py-3 pl-11"
-                        onSelect={() => switchTo(ws.id, env.id)}
-                      >
-                        <span className="truncate">{env.name}</span>
-                        {ws.id === activeWorkspaceId && env.id === activeEnvironmentId && (
-                          <Check className="ml-auto h-4 w-4 shrink-0" />
-                        )}
-                      </DropdownMenuItem>
-                    ))}
-                  </div>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (environments.length > 0 && (
-          <Select
-            value={String(activeEnvironmentId || '')}
-            onValueChange={(val) => dispatch(setActiveEnvironment(Number(val)))}
-          >
-            <SelectTrigger className="bg-card text-sm h-9 transition-colors">
-              <SelectValue placeholder="Select environment" />
-            </SelectTrigger>
-            <SelectContent>
-              {environments.map((env) => (
-                <SelectItem key={env.id} value={String(env.id)}>
-                  {env.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ))}
+        {/* Workspace × environment, as one hierarchy — see WorkspaceSwitcher. */}
+        <WorkspaceSwitcher onNavigate={onNavigate} />
       </div>
 
       <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
