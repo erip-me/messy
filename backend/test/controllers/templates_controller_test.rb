@@ -214,4 +214,105 @@ class TemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_includes json["body"], "<html>"
     assert_includes json["body"], "</html>"
   end
+
+  # --- composer support: render, default identity, attachments ---
+
+  def composer_template(attrs = {})
+    accounts(:acme).templates.create!({
+      environment: environments(:production), name: "Outreach", trigger: "sales.outreach.#{SecureRandom.hex(4)}",
+      channel: "email", subject: "Hi {{first_name}}", preview: "For {{company}}",
+      body: "Hello {{first_name}}, see {{unsubscribe_url}}", body_format: "html",
+      layout: layouts(:default_layout)
+    }.merge(attrs))
+  end
+
+  test "render previews a template without sending and lists missing variables" do
+    identity = accounts(:acme).sending_identities.create!(from_name: "Peter", from_email: "peter@acme.com")
+    t = composer_template(sending_identity: identity)
+    t.attachments.attach(io: StringIO.new("%PDF"), filename: "deck.pdf", content_type: "application/pdf")
+
+    assert_no_difference "Message.count" do
+      post "/templates/#{t.id}/render", params: { data: { first_name: "Ann" } },
+           headers: api_key_headers(environments(:production)), as: :json
+    end
+
+    assert_response :success
+    json = JSON.parse(response.body)
+    assert_equal "Hi Ann", json["subject"]
+    assert_equal "For ", json["preview"]
+    assert_equal "Hello Ann, see #unsubscribe", json["content_html"]
+    assert_equal "<html><body>Hello Ann, see #unsubscribe</body></html>", json["html"]
+    assert_equal layouts(:default_layout).id, json["layout_id"]
+    assert_equal({ "id" => identity.id, "from_name" => "Peter", "from_email" => "peter@acme.com" }, json["sending_identity"])
+    assert_equal [["deck.pdf", "application/pdf", 4]], json["attachments"].map { |a| [a["filename"], a["content_type"], a["byte_size"]] }
+    assert_equal ["company"], json["missing_variables"]
+  end
+
+  test "render renders markdown through the layout transformers into content_html" do
+    post "/templates/#{templates(:markdown_template).id}/render", params: { data: {} },
+         headers: api_key_headers(environments(:production)), as: :json
+
+    json = JSON.parse(response.body)
+    assert_includes json["content_html"], '<h1 style="color: blue;">Hello</h1>'
+    assert_not_includes json["content_html"], "<html>"
+    assert json["html"].start_with?("<html><body>")
+    assert_nil json["sending_identity"]
+    assert_equal [], json["missing_variables"]
+  end
+
+  test "render is scoped to the key's environment" do
+    post "/templates/#{composer_template.id}/render", params: { data: {} },
+         headers: api_key_headers(environments(:staging)), as: :json
+    assert_response :not_found
+  end
+
+  test "index filters by sending_identity_id and exposes identity + attachments" do
+    identity = accounts(:acme).sending_identities.create!(from_email: "peter@acme.com")
+    t = composer_template(sending_identity: identity)
+
+    get "/templates", params: { sending_identity_id: identity.id }, headers: api_key_headers(environments(:production))
+
+    json = JSON.parse(response.body)
+    assert_equal [t.id], json.map { |r| r["id"] }
+    assert_equal identity.id, json.first["sending_identity_id"]
+    assert_equal [], json.first["attachments"]
+  end
+
+  test "update sets the default identity but refuses another account's" do
+    t = composer_template
+    mine = accounts(:acme).sending_identities.create!(from_email: "peter@acme.com")
+    theirs = accounts(:other_co).sending_identities.create!(from_email: "x@other.com")
+
+    patch "/templates/#{t.id}", params: { template: { sending_identity_id: mine.id } },
+          headers: api_key_headers(environments(:production)), as: :json
+    assert_response :success
+    assert_equal mine.id, t.reload.sending_identity_id
+
+    patch "/templates/#{t.id}", params: { template: { sending_identity_id: theirs.id } },
+          headers: api_key_headers(environments(:production)), as: :json
+    assert_response :unprocessable_entity
+    assert_equal mine.id, t.reload.sending_identity_id
+  end
+
+  test "attachments can be uploaded and removed" do
+    t = composer_template
+    file = Rack::Test::UploadedFile.new(StringIO.new("hello"), "text/plain", original_filename: "notes.txt")
+
+    post "/templates/#{t.id}/attachments", params: { file: file }, headers: api_key_headers(environments(:production))
+    assert_response :created
+    attachment = JSON.parse(response.body)["attachments"].first
+    assert_equal "notes.txt", attachment["filename"]
+
+    delete "/templates/#{t.id}/attachments/#{attachment["id"]}", headers: api_key_headers(environments(:production))
+    assert_response :success
+    assert_equal [], JSON.parse(response.body)["attachments"]
+    assert_not t.reload.attachments.attached?
+  end
+
+  test "deleting an identity nullifies it on templates" do
+    identity = accounts(:acme).sending_identities.create!(from_email: "peter@acme.com")
+    t = composer_template(sending_identity: identity)
+    identity.destroy!
+    assert_nil t.reload.sending_identity_id
+  end
 end

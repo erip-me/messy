@@ -523,4 +523,82 @@ class SyncControllerTest < ActionDispatch::IntegrationTest
     layout = Layout.find_by(name: "Brand New Layout")
     assert_equal layout.id, template.layout_id
   end
+
+  # --- identity + attachments ---
+
+  def composer_entry(extra = {})
+    { trigger: "composer.intro", channel: "email", name: "Intro", subject: "Hi", body: "<p>Hi</p>", body_format: "html" }.merge(extra)
+  end
+
+  def attachment_entry(filename, content, with_data: true)
+    entry = { filename: filename, content_type: "text/plain", checksum: OpenSSL::Digest::MD5.base64digest(content) }
+    entry[:data] = Base64.strict_encode64(content) if with_data
+    entry
+  end
+
+  test "sync resolves identity by from_email and clears it when absent" do
+    identity = accounts(:acme).sending_identities.create!(from_email: "peter@acme.com")
+
+    sync_post({ templates: [composer_entry(identity: "peter@acme.com")] })
+    assert_response :success
+    template = Template.find_by(trigger: "composer.intro")
+    assert_equal identity.id, template.sending_identity_id
+
+    sync_post({ templates: [composer_entry] })
+    assert_response :success
+    assert_nil template.reload.sending_identity_id
+  end
+
+  test "sync with an unknown identity errors and rolls back" do
+    accounts(:other_co).sending_identities.create!(from_email: "peter@other.com")
+
+    assert_no_difference "Template.count" do
+      sync_post({ templates: [composer_entry(identity: "peter@other.com")] })
+    end
+    assert_response :unprocessable_entity
+    assert_match(/peter@other.com/, JSON.parse(response.body)["errors"].first["errors"].first)
+  end
+
+  test "sync reconciles attachments: keeps checksum matches, adds new, purges the rest" do
+    sync_post({ templates: [composer_entry(attachments: [attachment_entry("a.txt", "aaa"), attachment_entry("b.txt", "bbb")])] })
+    assert_response :success
+    template = Template.find_by(trigger: "composer.intro")
+    kept_id = template.attachments.find { |a| a.filename.to_s == "a.txt" }.id
+
+    # a.txt checksum-only (no data), b.txt dropped, c.txt new
+    sync_post({ templates: [composer_entry(attachments: [attachment_entry("a.txt", "aaa", with_data: false), attachment_entry("c.txt", "ccc")])] })
+    assert_response :success
+
+    template.reload
+    assert_equal %w[a.txt c.txt], template.attachments.map { |a| a.filename.to_s }.sort
+    assert_equal kept_id, template.attachments.find { |a| a.filename.to_s == "a.txt" }.id
+    assert_equal "ccc", template.attachments.find { |a| a.filename.to_s == "c.txt" }.download
+  end
+
+  test "sync with no attachments key removes all template attachments" do
+    sync_post({ templates: [composer_entry(attachments: [attachment_entry("a.txt", "aaa")])] })
+    template = Template.find_by(trigger: "composer.intro")
+    assert template.attachments.attached?
+
+    sync_post({ templates: [composer_entry] })
+    assert_response :success
+    assert_not template.reload.attachments.attached?
+  end
+
+  test "sync errors on a checksum-only attachment that matches nothing" do
+    sync_post({ templates: [composer_entry(attachments: [attachment_entry("a.txt", "aaa", with_data: false)])] })
+
+    assert_response :unprocessable_entity
+    assert_nil Template.find_by(trigger: "composer.intro")
+  end
+
+  test "sync keeps attachments when a later template fails and the sync rolls back" do
+    sync_post({ templates: [composer_entry(attachments: [attachment_entry("a.txt", "aaa")])] })
+    template = Template.find_by(trigger: "composer.intro")
+
+    sync_post({ templates: [composer_entry, composer_entry(trigger: "composer.bad", identity: "nobody@acme.com")] })
+    assert_response :unprocessable_entity
+    assert_equal ["a.txt"], template.reload.attachments.map { |a| a.filename.to_s }
+    assert_equal "aaa", template.attachments.first.download
+  end
 end

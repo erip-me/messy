@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_07_31_190000) do
+ActiveRecord::Schema[8.0].define(version: 2026_09_23_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -702,6 +702,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_31_190000) do
     t.bigint "sending_identity_id"
     t.integer "click_count", default: 0, null: false
     t.datetime "first_clicked_at"
+    t.jsonb "metadata", default: {}, null: false
     t.index ["account_id", "created_at"], name: "index_messages_on_account_id_and_created_at", order: { created_at: :desc }
     t.index ["account_id"], name: "index_messages_on_account_id"
     t.index ["drip_campaign_id"], name: "index_messages_on_drip_campaign_id"
@@ -816,6 +817,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_31_190000) do
     t.boolean "is_default", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "personal", default: false, null: false
     t.index ["account_id"], name: "index_sending_identities_on_account_id"
     t.index ["account_id"], name: "index_sending_identities_one_default_per_account", unique: true, where: "is_default"
   end
@@ -1066,10 +1068,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_31_190000) do
     t.string "preview"
     t.string "channel", default: "email", null: false
     t.string "body_format", default: "html", null: false
+    t.bigint "sending_identity_id"
     t.index ["account_id"], name: "index_templates_on_account_id"
     t.index ["environment_id", "trigger", "channel"], name: "index_templates_on_env_trigger_channel", unique: true
     t.index ["folder_id"], name: "index_templates_on_folder_id"
     t.index ["layout_id"], name: "index_templates_on_layout_id"
+    t.index ["sending_identity_id"], name: "index_templates_on_sending_identity_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -1192,5 +1196,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_07_31_190000) do
   add_foreign_key "templates", "environments"
   add_foreign_key "templates", "folders"
   add_foreign_key "templates", "layouts"
+  add_foreign_key "templates", "sending_identities", on_delete: :nullify
   add_foreign_key "users", "accounts"
 end

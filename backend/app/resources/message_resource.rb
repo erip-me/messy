@@ -10,5 +10,5 @@ class MessageResource
              :sent_at, :is_deleted, :created_at, :updated_at, :tracking_token,
              :open_count, :first_opened_at, :parent_message_id, :language,
              :drip_campaign_id, :drip_step_id, :sending_identity_id,
-             :click_count, :first_clicked_at
+             :click_count, :first_clicked_at, :metadata
 end

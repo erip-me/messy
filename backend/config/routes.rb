@@ -69,7 +69,14 @@ Rails.application.routes.draw do
       get 'attachments/:attachment_id', action: :attachment, as: :attachment
     end
   end
-  resources :templates
+  resources :templates do
+    member do
+      # `render` would shadow ActionController#render, hence the action name.
+      post :render, action: :render_preview
+      post :attachments, action: :add_attachment
+      delete 'attachments/:attachment_id', action: :remove_attachment
+    end
+  end
   resources :layouts
   post '/sync', to: 'sync#create'
   resources :folders do

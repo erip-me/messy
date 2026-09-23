@@ -13,6 +13,7 @@ import { getMessageById, retryMessage, getWhatsAppTemplates, Message, ChildMessa
 import { copyToClipboard } from '@/utils/clipboard';
 import toast from 'react-hot-toast';
 import { parseRecipients } from '@/utils/recipients';
+import { formatFileSize } from '@/utils/format-file-size';
 
 
 const STATUS_ICONS: Record<string, typeof Clock> = {
@@ -115,12 +116,6 @@ export function MessageShowPage() {
   const _StatusIcon = ({ status }: { status: string }) => {
     const Icon = STATUS_ICONS[status] || Clock;
     return <Icon className="h-4 w-4" />;
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const getFileIcon = (contentType: string) => {
@@ -590,6 +585,24 @@ export function MessageShowPage() {
                           {message.drip.step_position !== null && (
                             <p className="mt-0.5 text-xs text-muted-foreground">Step {message.drip.step_position + 1}</p>
                           )}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Caller-supplied metadata (e.g. who composed it) */}
+                    {message.metadata && Object.keys(message.metadata).length > 0 && (
+                      <>
+                        <Separator />
+                        <div>
+                          <label className="text-sm font-medium text-muted-foreground">Metadata</label>
+                          <div className="mt-1 space-y-1.5">
+                            {Object.entries(message.metadata).map(([key, value]) => (
+                              <div key={key} className="flex items-center justify-between gap-4 rounded border bg-muted/30 px-3 py-1.5">
+                                <span className="text-xs font-semibold text-muted-foreground font-mono">{key}</span>
+                                <span className="text-sm font-mono text-right break-all">{String(value)}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </>
                     )}

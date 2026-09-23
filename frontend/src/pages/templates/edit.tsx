@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Save, Eye, Code, FileText, Folder, FolderPlus, LayoutTemplate, Smile, SendHorizonal } from "lucide-react";
+import { ArrowLeft, Save, Eye, Code, FileText, Folder, FolderPlus, LayoutTemplate, Smile, SendHorizonal, AtSign, Paperclip, Trash2, Upload } from "lucide-react";
 import Editor from "@monaco-editor/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,8 @@ import {
   getTemplateById,
   createTemplate,
   updateTemplate,
+  addTemplateAttachment,
+  removeTemplateAttachment,
   Template,
   TemplateChannel,
   BodyFormat,
@@ -39,6 +41,8 @@ import {
   Folder as FolderType,
 } from "@/api/folders";
 import { getLayouts, Layout } from "@/api/layouts";
+import { getSendingIdentities, SendingIdentity } from "@/api/sending-identities";
+import { formatFileSize } from "@/utils/format-file-size";
 import { ChannelTypeIcon } from "@/components/channel-icons";
 import { CHANNEL_CONFIG, Channel } from "@/utils/channel-config";
 import { Switch } from "@/components/ui/switch";
@@ -56,6 +60,9 @@ export function TemplateEditPage() {
   const [template, setTemplate] = useState<Template | null>(null);
   const [folders, setFolders] = useState<FolderType[]>([]);
   const [layouts, setLayouts] = useState<Layout[]>([]);
+  const [identities, setIdentities] = useState<SendingIdentity[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -80,6 +87,7 @@ export function TemplateEditPage() {
     preview: "",
     folder_id: (searchParams.get("folder_id") ? parseInt(searchParams.get("folder_id")!) : undefined) as number | undefined,
     layout_id: undefined as number | undefined,
+    sending_identity_id: undefined as number | undefined,
   });
 
   const isNew = !id || id === "new";
@@ -137,6 +145,7 @@ export function TemplateEditPage() {
       setLoading(true);
       const foldersPromise = getFolders(apiKey);
       const layoutsPromise = getLayouts(apiKey);
+      getSendingIdentities().then(setIdentities).catch(() => setIdentities([]));
 
       if (isEditMode) {
         const [templateData, foldersData, layoutsData] = await Promise.all([
@@ -157,6 +166,7 @@ export function TemplateEditPage() {
           preview: templateData.preview || "",
           folder_id: templateData.folder_id,
           layout_id: templateData.layout_id,
+          sending_identity_id: templateData.sending_identity_id ?? undefined,
         });
         setFolders(foldersData);
         setLayouts(layoutsData);
@@ -200,6 +210,8 @@ export function TemplateEditPage() {
         preview: channelDef.hasPreview ? autoPreview : undefined,
         folder_id: formData.folder_id,
         layout_id: channelDef.hasLayout ? formData.layout_id : undefined,
+        // null clears it (blank = the workspace default identity)
+        sending_identity_id: formData.channel === "email" ? formData.sending_identity_id ?? null : null,
       };
 
       if (isEditMode && template) {
@@ -215,6 +227,29 @@ export function TemplateEditPage() {
       console.error(error);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !template) return;
+    try {
+      setUploading(true);
+      setTemplate(await addTemplateAttachment(template.id, file));
+    } catch {
+      toast.error("Failed to upload attachment");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleAttachmentRemove = async (attachmentId: number) => {
+    if (!template) return;
+    try {
+      setTemplate(await removeTemplateAttachment(template.id, attachmentId));
+    } catch {
+      toast.error("Failed to remove attachment");
     }
   };
 
@@ -583,7 +618,55 @@ export function TemplateEditPage() {
                   />
                 </div>
                 )}
+
+                {formData.channel === "email" && (
+                <div>
+                  <Label htmlFor="sending_identity">Send as</Label>
+                  <SearchableSelect
+                    value={formData.sending_identity_id?.toString() ?? "none"}
+                    onValueChange={(value) => handleInputChange("sending_identity_id", value === "none" ? undefined : parseInt(value))}
+                    placeholder="Default identity"
+                    searchPlaceholder="Search identities…"
+                    options={[
+                      { value: "none", label: "Default identity" },
+                      ...identities.map((identity) => ({
+                        value: identity.id.toString(),
+                        label: identity.from_name ? `${identity.from_name} <${identity.from_email}>` : identity.from_email,
+                        icon: <AtSign className="h-4 w-4 text-muted-foreground" />,
+                      })),
+                    ]}
+                  />
+                </div>
+                )}
               </div>
+
+              {formData.channel === "email" && isEditMode && template && (
+                <div>
+                  <Label className="flex items-center gap-1.5">
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Attachments
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">Sent with every message built from this template.</p>
+                  <div className="mt-2 space-y-1.5">
+                    {(template.attachments || []).map((attachment) => (
+                      <div key={attachment.id} className="flex items-center justify-between gap-4 rounded border bg-muted/30 px-3 py-1.5">
+                        <span className="text-sm truncate">{attachment.filename}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-muted-foreground">{formatFileSize(attachment.byte_size)}</span>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleAttachmentRemove(attachment.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <input ref={attachmentInputRef} type="file" className="hidden" onChange={handleAttachmentUpload} />
+                  <Button variant="outline" size="sm" className="mt-2" disabled={uploading} onClick={() => attachmentInputRef.current?.click()}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    {uploading ? "Uploading…" : "Add attachment"}
+                  </Button>
+                </div>
+              )}
 
               {channelDef.hasPreview && (
                 <div>

@@ -49,7 +49,7 @@ class DripStepSender
       template: template,
       drip_campaign_id: @drip.id,
       drip_step_id: @step.id,
-      sending_identity_id: @drip.sending_identity_id,
+      sending_identity_id: @drip.sending_identity_id || template.sending_identity_id,
       to: to,
       status: :pending
     )
@@ -60,6 +60,7 @@ class DripStepSender
     rendered = TemplateRenderer.call(template: template, variables: vars)
     message.subject = rendered.subject if template.subject.present?
     message.body = rendered.body
+    message.attachments.attach(template.attachments.map(&:blob)) if template.attachments.attached?
 
     message.save!
     ProcessMessageJob.perform_later(message)

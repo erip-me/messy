@@ -46,4 +46,46 @@ class SendingIdentitiesControllerTest < ActionDispatch::IntegrationTest
     end
     assert_response :success
   end
+
+  test "index accepts an environment API key, scoped to its account" do
+    @account.sending_identities.create!(from_email: "mine@lalaaji.com")
+    accounts(:other_co).sending_identities.create!(from_email: "theirs@other.com")
+
+    get sending_identities_path, headers: api_key_headers(environments(:production))
+
+    assert_response :success
+    emails = JSON.parse(response.body).map { |i| i["from_email"] }
+    assert_includes emails, "mine@lalaaji.com"
+    assert_not_includes emails, "theirs@other.com"
+  end
+
+  test "index filters by personal and exposes the flag" do
+    @account.sending_identities.create!(from_email: "peter@lalaaji.com", personal: true)
+    @account.sending_identities.create!(from_email: "noreply@lalaaji.com")
+
+    get sending_identities_path, params: { personal: "true" }, headers: api_key_headers(environments(:production))
+
+    json = JSON.parse(response.body)
+    assert_equal ["peter@lalaaji.com"], json.map { |i| i["from_email"] }
+    assert_equal true, json.first["personal"]
+  end
+
+  test "index rejects a missing or bogus key" do
+    get sending_identities_path, headers: { "Authorization" => "Bearer nope" }
+    assert_response :unauthorized
+  end
+
+  test "an API key cannot create identities" do
+    assert_no_difference -> { SendingIdentity.count } do
+      post sending_identities_path, params: { from_email: "x@lalaaji.com" }, headers: api_key_headers(environments(:production))
+    end
+    assert_response :unauthorized
+  end
+
+  test "personal can be toggled" do
+    id = @account.sending_identities.create!(from_email: "p@lalaaji.com")
+    put sending_identity_path(id), params: { personal: "true" }, headers: @headers
+    assert_response :success
+    assert id.reload.personal
+  end
 end

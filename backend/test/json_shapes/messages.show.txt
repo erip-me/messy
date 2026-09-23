@@ -36,6 +36,7 @@ $.is_deleted: Boolean
 $.language: Null
 $.link_clicks[].count: Integer
 $.link_clicks[].url: String
+$.metadata: {}
 $.open_count: Integer
 $.parent_message_id: Null
 $.scope: String

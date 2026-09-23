@@ -66,4 +66,22 @@ class TemplateRendererTest < ActiveSupport::TestCase
     assert_equal "First.\n\nSecond.", body
     assert_not_includes body, "<p"
   end
+
+  test "exposes content before the layout alongside the wrapped body" do
+    t = template(layout: @layout, body: "Hi {{first_name}}")
+
+    result = TemplateRenderer.call(template: t, variables: { "first_name" => "Ann" })
+
+    assert_equal "Hi Ann", result.content
+    assert_equal "<html><body>Hi Ann</body></html>", result.body
+  end
+
+  test "missing_variables lists unsupplied top-level names, ignoring template-local ones" do
+    t = template(subject: "Hi {{first_name}}", preview: "{{ teaser }}",
+                 body: "{% assign x = 1 %}{{ x }}{% for i in items %}{{ i.name }}{{ forloop.index }}{% endfor %}{{ user.name }}")
+
+    missing = TemplateRenderer.new(template: t, variables: { "items" => [] }).missing_variables
+
+    assert_equal %w[first_name user teaser].sort, missing.sort
+  end
 end

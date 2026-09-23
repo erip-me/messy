@@ -1,4 +1,5 @@
 $[].account_id: Integer
+$[].attachments[]: (empty)
 $[].body: String
 $[].body_format: String
 $[].channel: String
@@ -11,6 +12,7 @@ $[].layout_id: Integer
 $[].layout_id: Null
 $[].name: String
 $[].preview: Null
+$[].sending_identity_id: Null
 $[].subject: Null
 $[].subject: String
 $[].trigger: String

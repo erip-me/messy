@@ -35,6 +35,8 @@ class Message < ApplicationRecord
   # A caller can pass any sending_identity_id; make sure it's one of this
   # account's identities so account A can't send using account B's From line.
   validate :sending_identity_belongs_to_account, if: :sending_identity_id
+  # Caller-supplied metadata (e.g. who composed it) is a flat key/value hash.
+  validate :metadata_is_flat
 
   enum :scope, {
     any: 0,
@@ -177,6 +179,12 @@ class Message < ApplicationRecord
       sign: ->(url) { tracking_link_signature(url, CLICK_SIGNATURE_PURPOSE) },
       skip: ->(url) { !trackable_link?(url, base) }
     )
+  end
+
+  def metadata_is_flat
+    return if metadata.is_a?(Hash) && metadata.values.all? { |v| v.nil? || v.is_a?(String) || v.is_a?(Numeric) || v == true || v == false }
+
+    errors.add(:metadata, "must be a flat hash of string, number or boolean values")
   end
 
   def sending_identity_belongs_to_account

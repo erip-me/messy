@@ -434,4 +434,18 @@ class DripFlowTest < ActionDispatch::IntegrationTest
     assert_equal "suppressed", execution(drip, c, 1).status
     assert_equal 1, messages_for(drip).count, "no further drip messages after opting out"
   end
+
+  test "a drip without its own identity falls back to the template's, and carries template attachments" do
+    identity = @account.sending_identities.create!(from_name: "Peter", from_email: "peter@lalaaji.com")
+    @email_t.update!(sending_identity: identity)
+    @email_t.attachments.attach(io: StringIO.new("%PDF"), filename: "deck.pdf", content_type: "application/pdf")
+    drip = make_drip(steps: [{ channel: "email", template: @email_t, delay: 0 }])
+    c = seller("fallback@x.test")
+
+    travel_to(@t0) { recompute(c); drain }
+
+    msg = messages_for(drip).first
+    assert_equal identity.id, msg.sending_identity_id
+    assert_equal ["deck.pdf"], msg.attachments.map { |a| a.filename.to_s }
+  end
 end

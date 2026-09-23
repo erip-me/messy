@@ -237,4 +237,28 @@ class ProcessMessageJobTest < ActiveJob::TestCase
     assert_equal message.body, child.body
     assert_equal message.type, child.type
   end
+
+  test "child messages inherit identity, language, metadata and template" do
+    identity = accounts(:acme).sending_identities.create!(from_email: "peter@acme.com")
+    message = EmailMessage.create!(
+      account: accounts(:acme), environment: environments(:production),
+      template: templates(:welcome), sending_identity: identity, language: "nl",
+      metadata: { "source" => "lalaaji", "seller_key" => "abc" },
+      to: "a@example.com, b@example.com", subject: "Test", body: "Body", status: :pending
+    )
+
+    Environment.any_instance.stubs(:check_rules?).with(message, "a@example.com").returns(:passed)
+    Environment.any_instance.stubs(:check_rules?).with(message, "b@example.com").returns(:failed)
+    DeliverMessageJob.stubs(:perform_later)
+
+    ProcessMessageJob.new.perform(message)
+
+    message.child_messages.each do |child|
+      assert_equal identity.id, child.sending_identity_id
+      assert_equal "nl", child.language
+      assert_equal({ "source" => "lalaaji", "seller_key" => "abc" }, child.metadata)
+      assert_equal templates(:welcome).id, child.template_id
+    end
+    assert_equal 2, message.child_messages.count
+  end
 end

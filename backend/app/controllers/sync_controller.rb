@@ -11,6 +11,7 @@ class SyncController < ApplicationController
     results = { layouts: { created: 0, updated: 0 }, folders: { created: 0, updated: 0 }, templates: { created: 0, updated: 0 }, errors: [] }
     layout_name_to_id = {}
     folder_path_to_id = {}
+    stale_attachments = []
 
     ActiveRecord::Base.transaction do
       # Phase 1: Upsert layouts
@@ -94,11 +95,22 @@ class SyncController < ApplicationController
         template.layout_id = layout_name_to_id[template_data["layout"]] if template_data["layout"].present?
         template.folder_id = folder_path_to_id[template_data["folder"]] if template_data["folder"].present?
 
-        if template.save
+        # identity: a from_email of one of the account's identities; absent/blank clears it.
+        if template_data["identity"].present?
+          template.sending_identity = @account.sending_identities.find_by(from_email: template_data["identity"])
+          unless template.sending_identity
+            results[:errors] << { type: "template", trigger: template_data["trigger"], channel: template_data["channel"], errors: ["Sending identity '#{template_data["identity"]}' not found"] }
+            next
+          end
+        else
+          template.sending_identity = nil
+        end
+
+        if template.save && (attachment_error = sync_attachments(template, template_data["attachments"], stale_attachments)).nil?
           is_new ? results[:templates][:created] += 1 : results[:templates][:updated] += 1
           synced_triggers << [template.trigger, template.channel]
         else
-          results[:errors] << { type: "template", trigger: template_data["trigger"], channel: template_data["channel"], errors: template.errors.full_messages }
+          results[:errors] << { type: "template", trigger: template_data["trigger"], channel: template_data["channel"], errors: attachment_error ? [attachment_error] : template.errors.full_messages }
         end
       end
 
@@ -154,9 +166,39 @@ class SyncController < ApplicationController
     if results[:errors].any?
       render json: results, status: :unprocessable_entity
     else
+      # Purge only once the sync has committed, so a rollback never loses files.
+      stale_attachments.each(&:purge)
       render json: results, status: :ok
     end
   rescue ActionDispatch::Http::Parameters::ParseError => e
     render json: { error: "Invalid JSON: #{e.message}" }, status: :bad_request
+  end
+
+  private
+
+  # The synced list is the source of truth for a template's attachments: keep
+  # those whose filename + checksum match, attach new ones, and queue the rest
+  # for purging. An entry may omit `data` when its checksum already matches.
+  # Returns an error string, or nil on success.
+  def sync_attachments(template, entries, stale)
+    existing = template.attachments.to_a
+    kept = []
+
+    Array(entries).each do |entry|
+      match = existing.find { |a| a.filename.to_s == entry["filename"] && a.checksum == entry["checksum"] }
+      next kept << match if match
+      return "Attachment '#{entry["filename"]}' has no data and matches no existing file" if entry["data"].blank?
+
+      bytes = begin
+        Base64.strict_decode64(entry["data"].to_s.gsub(/\s/, ""))
+      rescue ArgumentError
+        return "Attachment '#{entry["filename"]}' is not valid base64"
+      end
+      template.attachments.attach(io: StringIO.new(bytes), filename: entry["filename"].to_s,
+                                  content_type: entry["content_type"].presence)
+    end
+
+    stale.concat(existing - kept)
+    nil
   end
 end

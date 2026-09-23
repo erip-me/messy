@@ -90,6 +90,9 @@ class ProcessMessageJob < ApplicationJob
         body: parent.body,
         tags: parent.tags,
         scope: parent.scope,
+        sending_identity_id: parent.sending_identity_id,
+        language: parent.language,
+        metadata: parent.metadata,
         status: status
       )
 

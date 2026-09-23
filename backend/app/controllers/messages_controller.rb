@@ -80,7 +80,11 @@ class MessagesController < ApplicationController
 
   # POST /messages
   def create
-    process_built_message(build_message)
+    message = build_message
+    apply_template_and_layout(message)
+    process_built_message(message)
+  rescue InvalidMessageParams => e
+    render json: { error: e.message }, status: :unprocessable_entity
   end
 
   # POST /trigger
@@ -93,6 +97,8 @@ class MessagesController < ApplicationController
                     end
 
     message = message_class.build_from(message_params, @template)
+    message.trigger = @template.trigger
+    message.sending_identity_id ||= @template.sending_identity_id
 
     # Auto-provided merge tags the caller never has to fill: a real per-message
     # unsubscribe link (needs the tracking token generated up front so it resolves).
@@ -115,7 +121,11 @@ class MessagesController < ApplicationController
     # Store the caller-provided trigger data for visibility in the UI.
     message.tags = [{ "trigger_data" => h }] if h.present?
 
+    attach_template_files(message, @template)
+    attach_inline_attachments(message)
     process_built_message(message)
+  rescue InvalidMessageParams => e
+    render json: { error: e.message }, status: :unprocessable_entity
   end
 
   # PATCH/PUT /messages/1
@@ -175,6 +185,68 @@ class MessagesController < ApplicationController
   end
 
   private
+    class InvalidMessageParams < StandardError; end
+
+    # One-off send options (all optional): template_id ("customized from this
+    # template": stored, its attachments added, its layout + identity used as
+    # defaults), layout_id (wrap the HTML body in this layout; email only) and
+    # preview (the layout's preview slot, not persisted). Plus inline_attachments.
+    def apply_template_and_layout(message)
+      opts = params[:message]
+      template = @environment.templates.find_by(id: opts[:template_id]) if opts[:template_id].present?
+      raise InvalidMessageParams, "Template not found" if opts[:template_id].present? && !template
+
+      layout = opts[:layout_id].present? ? @environment.layouts.find_by(id: opts[:layout_id]) : template&.layout
+      raise InvalidMessageParams, "Layout not found" if opts[:layout_id].present? && !layout
+
+      if template
+        message.template = template
+        message.sending_identity_id ||= template.sending_identity_id
+        attach_template_files(message, template)
+      end
+
+      if (layout || template) && message.is_a?(EmailMessage)
+        # Token first so the unsubscribe link resolves, same as trigger.
+        message.generate_tracking_token
+        unsubscribe_url = unsubscribe_url_for(message)
+        # Content edited from a preview carries the preview's placeholder link
+        # wherever the template body itself had {{ unsubscribe_url }}.
+        message.body = message.body.to_s.gsub(TemplateRenderer::PREVIEW_UNSUBSCRIBE_URL, unsubscribe_url)
+        if layout
+          message.body = TemplateRenderer.wrap_in_layout(
+            layout, content: message.body, preview: opts[:preview].to_s,
+            variables: { "unsubscribe_url" => unsubscribe_url }
+          )
+        end
+      end
+
+      attach_inline_attachments(message)
+    end
+
+    def attach_template_files(message, template)
+      message.attachments.attach(template.attachments.map(&:blob)) if template.attachments.attached?
+    end
+
+    # message[inline_attachments]: [{filename, content_type, data (base64)}] for
+    # JSON callers that can't send multipart.
+    def attach_inline_attachments(message)
+      list = params[:message][:inline_attachments]
+      return if list.blank?
+      raise InvalidMessageParams, "inline_attachments must be an array" unless list.is_a?(Array)
+
+      list.each do |item|
+        raise InvalidMessageParams, "inline attachment needs filename and data" unless item.respond_to?(:key?) && item[:filename].present? && item[:data].present?
+
+        bytes = begin
+          Base64.strict_decode64(item[:data].to_s.gsub(/\s/, ""))
+        rescue ArgumentError
+          raise InvalidMessageParams, "inline attachment #{item[:filename]} is not valid base64"
+        end
+        message.attachments.attach(io: StringIO.new(bytes), filename: item[:filename].to_s,
+                                   content_type: item[:content_type].presence)
+      end
+    end
+
     # Attachment URLs are opened as plain browser navigations (an <a href>), so they
     # carry no X-Environment-Id header and load_message's @environment silently falls
     # back to the account's *first* environment — 404ing every attachment on a message
@@ -254,8 +326,10 @@ class MessagesController < ApplicationController
       template = Liquid::Template.parse(message.body)
       variables = template.root.nodelist.select { |node| node.is_a?(Liquid::Variable) }.map(&:name)
 
-      # Tags the server fills in automatically don't need to be supplied by the caller.
-      required = variables.reject { |tag| provided.include?(tag.name) }
+      # Tags the server fills in automatically, and names the template defines
+      # itself ({% assign %} etc.), don't need to be supplied by the caller.
+      locals = TemplateRenderer.local_variables(template.root)
+      required = variables.reject { |tag| provided.include?(tag.name) || locals.include?(tag.name) }
 
       if required.any?
         raise "Missing template data" unless params[:data]
@@ -271,7 +345,7 @@ class MessagesController < ApplicationController
 
     # Only allow a list of trusted parameters through.
     def message_params
-      permitted = params.require(:message).permit(:to, :cc, :bcc, :subject, :body, :language, :sending_identity_id, attachments: [])
+      permitted = params.require(:message).permit(:to, :cc, :bcc, :subject, :body, :language, :sending_identity_id, attachments: [], metadata: {})
       if params[:message][:tags].present?
         tags = params[:message][:tags]
         if tags.is_a?(Array)

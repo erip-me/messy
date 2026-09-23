@@ -16,9 +16,18 @@ export interface Template {
   preview?: string;
   folder_id?: number;
   layout_id?: number;
+  sending_identity_id?: number | null;
+  attachments?: TemplateAttachment[];
   environment_id: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface TemplateAttachment {
+  id: number;
+  filename: string;
+  content_type: string;
+  byte_size: number;
 }
 
 export interface CreateTemplateRequest {
@@ -31,6 +40,7 @@ export interface CreateTemplateRequest {
   preview?: string;
   folder_id?: number;
   layout_id?: number;
+  sending_identity_id?: number | null;
 }
 
 export interface UpdateTemplateRequest {
@@ -43,6 +53,7 @@ export interface UpdateTemplateRequest {
   preview?: string;
   folder_id?: number;
   layout_id?: number;
+  sending_identity_id?: number | null;
 }
 
 const controller = "/templates";
@@ -116,3 +127,12 @@ export const deleteTemplate = async (id: number, apiKey: string): Promise<void> 
 // Uses standard JWT auth (via request interceptor) instead of apiKey
 export const listTemplates = (params?: { channel?: TemplateChannel; scope?: 'account' }) =>
   request.get<Template[]>(controller, { params }).then(r => r.data);
+
+export const addTemplateAttachment = (id: number, file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  return request.post<Template>(`${controller}/${id}/attachments`, form).then(r => r.data);
+};
+
+export const removeTemplateAttachment = (id: number, attachmentId: number) =>
+  request.delete<Template>(`${controller}/${id}/attachments/${attachmentId}`).then(r => r.data);

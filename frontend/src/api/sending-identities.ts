@@ -5,6 +5,7 @@ export interface SendingIdentity {
   from_name: string | null;
   from_email: string;
   is_default: boolean;
+  personal: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -13,6 +14,7 @@ export interface SendingIdentityInput {
   from_name?: string;
   from_email: string;
   is_default?: boolean;
+  personal?: boolean;
 }
 
 export const getSendingIdentities = () =>

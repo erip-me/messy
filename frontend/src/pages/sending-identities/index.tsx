@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -21,7 +22,7 @@ export function SendingIdentitiesPage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<SendingIdentity | null>(null);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ from_name: '', from_email: '' });
+  const [form, setForm] = useState({ from_name: '', from_email: '', personal: false });
   const [saving, setSaving] = useState(false);
   const { confirm, ConfirmDialog } = useConfirm();
 
@@ -41,14 +42,14 @@ export function SendingIdentitiesPage() {
     finally { setLoading(false); }
   };
 
-  const openNew = () => { setEditing(null); setForm({ from_name: '', from_email: '' }); setOpen(true); };
-  const openEdit = (i: SendingIdentity) => { setEditing(i); setForm({ from_name: i.from_name || '', from_email: i.from_email }); setOpen(true); };
+  const openNew = () => { setEditing(null); setForm({ from_name: '', from_email: '', personal: false }); setOpen(true); };
+  const openEdit = (i: SendingIdentity) => { setEditing(i); setForm({ from_name: i.from_name || '', from_email: i.from_email, personal: i.personal }); setOpen(true); };
 
   const save = async () => {
     if (!form.from_email.trim()) { toast.error('From email is required'); return; }
     setSaving(true);
     try {
-      const payload = { from_name: form.from_name.trim() || undefined, from_email: form.from_email.trim() };
+      const payload = { from_name: form.from_name.trim() || undefined, from_email: form.from_email.trim(), personal: form.personal };
       if (editing) await updateSendingIdentity(editing.id, payload);
       else await createSendingIdentity(payload);
       setOpen(false);
@@ -112,7 +113,7 @@ export function SendingIdentitiesPage() {
                   className="w-full text-left p-4 flex flex-col gap-2 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium truncate">{i.from_name || '—'}</span>
+                    <span className="font-medium truncate">{i.from_name || '—'}{i.personal && <Badge variant="outline" className="ml-2">Personal</Badge>}</span>
                     <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                       <Button variant="ghost" size="sm" onClick={() => openEdit(i)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(i)}><Trash2 className="h-4 w-4" /></Button>
@@ -144,7 +145,10 @@ export function SendingIdentitiesPage() {
                 ))}
                 {identities.map(i => (
                   <TableRow key={i.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openEdit(i)}>
-                    <TableCell className="font-medium">{i.from_name || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="font-medium">
+                      {i.from_name || <span className="text-muted-foreground">—</span>}
+                      {i.personal && <Badge variant="outline" className="ml-2">Personal</Badge>}
+                    </TableCell>
                     <TableCell className="font-mono text-sm">{i.from_email}</TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <div className="flex items-center gap-1">
@@ -173,6 +177,13 @@ export function SendingIdentitiesPage() {
               <Label htmlFor="from_email">From email</Label>
               <Input id="from_email" placeholder="peter@acme.com" value={form.from_email} onChange={e => setForm(f => ({ ...f, from_email: e.target.value }))} />
               <p className="text-xs text-muted-foreground">Must be on a domain verified in your email provider (e.g. SES).</p>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="personal">Personal (1:1 outreach)</Label>
+                <p className="text-xs text-muted-foreground">A real person's address, offered to salespeople composing one-to-one emails.</p>
+              </div>
+              <Switch id="personal" checked={form.personal} onCheckedChange={personal => setForm(f => ({ ...f, personal }))} />
             </div>
           </div>
           <DialogFooter>

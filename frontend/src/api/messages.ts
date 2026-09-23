@@ -18,6 +18,7 @@ export interface Message {
   sending_identity?: { id: number; from_name: string | null; from_email: string } | null;
   tags?: any[];
   language?: string;
+  metadata?: Record<string, string | number | boolean | null>;
   sent_at?: string;
   delivered_at?: string;
   failed_at?: string;
