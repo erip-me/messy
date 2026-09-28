@@ -75,7 +75,8 @@ class ConversationsController < ApplicationController
     messages = @conversation.conversation_messages.reverse_chronological
 
     if params[:before].present?
-      messages = messages.where("id < ?", params[:before])
+      cursor = @conversation.conversation_messages.find_by(id: params[:before])
+      messages = cursor ? messages.before_message(cursor) : messages.where("id < ?", params[:before])
     end
 
     limit = [params[:limit]&.to_i || 50, 100].min

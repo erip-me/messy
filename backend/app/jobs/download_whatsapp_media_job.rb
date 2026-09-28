@@ -28,6 +28,7 @@ class DownloadWhatsappMediaJob < ApplicationJob
     message.attachments.attach(io: StringIO.new(body), content_type: mime,
                                filename: media["filename"].presence || "whatsapp-#{media["id"]}#{ext}")
     store(message, wa.merge("media" => media.merge("stored_at" => Time.current.iso8601)))
+    message.broadcast_update
   end
 
   private

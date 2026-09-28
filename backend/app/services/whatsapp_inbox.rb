@@ -106,10 +106,15 @@ class WhatsappInbox
     raise
   end
 
+  # Identifies the thread between this business number and a contact.
+  def thread_token(wa_id)
+    "whatsapp_#{integration.phone_id}_#{wa_id}"
+  end
+
   def conversation_for(wa_id, name: nil)
     customer = find_or_create_customer(wa_id, name)
     conversation = account.conversations.create_or_find_by!(
-      visitor_token: "whatsapp_#{integration.phone_id}_#{customer.whatsapp_id}", source: :whatsapp
+      visitor_token: thread_token(customer.whatsapp_id), source: :whatsapp
     ) do |c|
       c.environment = integration.environment || account.environments.first
       c.customer = customer

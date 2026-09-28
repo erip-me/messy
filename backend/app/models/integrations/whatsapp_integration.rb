@@ -57,6 +57,12 @@ class WhatsappIntegration < Integration
     app_secret.presence || ENV['META_APP_SECRET'].presence
   end
 
+  # Our platform app (META_APP_SECRET) signs webhooks for every WABA it's
+  # subscribed to; only integrations it onboarded may receive them.
+  def platform_verified?
+    platform_verified_waba_id.present? && platform_verified_waba_id == business_account_id.to_s
+  end
+
   def self.for_waba(waba_id)
     return nil if waba_id.blank?
     where(active: true).find_by("config->>'business_account_id' = ?", waba_id.to_s)

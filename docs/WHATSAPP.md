@@ -103,6 +103,12 @@ Graph calls go through `MetaGraph`. The API version is `META_GRAPH_API_VERSION`
 Per-number values (access token, phone number id, WABA id) come from Embedded Signup and
 are stored on the integration. They are never set as env vars.
 
+Webhooks signed by the platform app only reach integrations whose WABA Embedded Signup
+proved (`integrations.platform_verified_waba_id`). Integrations that bring their own Meta
+app are authorized by their own `app_secret`. If you upgraded from v1.0.6 with numbers
+already onboarded through Embedded Signup, run `bin/rails whatsapp:reverify` once. It
+re-proves ownership through the Graph API.
+
 ## Meta setup (one time)
 
 1. On developers.facebook.com, set up the app:

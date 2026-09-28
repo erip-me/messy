@@ -20,8 +20,23 @@ class ConversationMessage < ApplicationRecord
   after_create_commit :broadcast_message
 
   scope :visible_to_visitor, -> { where(private: false) }
-  scope :chronological, -> { order(created_at: :asc) }
-  scope :reverse_chronological, -> { order(created_at: :desc) }
+  scope :chronological, -> { order(created_at: :asc, id: :asc) }
+  scope :reverse_chronological, -> { order(created_at: :desc, id: :desc) }
+
+  # Keyset cursor matching reverse_chronological. Messages can be inserted with an
+  # older created_at than existing ones (imported WhatsApp history), so an id-only
+  # cursor would skip or repeat them.
+  scope :before_message, ->(message) {
+    where("(conversation_messages.created_at, conversation_messages.id) < (?, ?)", message.created_at, message.id)
+  }
+
+  # Re-sends a message to open inboxes after it changed (e.g. media attached).
+  def broadcast_update
+    ActionCable.server.broadcast(
+      "operator_inbox_#{account_id}",
+      { type: "message_updated", conversation_id: conversation_id, message: as_chat_json }
+    )
+  end
 
   def sender_name
     case sender_type

@@ -233,6 +233,35 @@ class ProcessWhatsappWebhookJobTest < ActiveJob::TestCase
     assert_equal "delivered", @delivery.reload.status
   end
 
+  test "entries for integrations the signature didn't authorize are ignored" do
+    event = WhatsappWebhookEvent.create!(body_sha256: "unauth", payload: messages_payload([text_message("wamid.inj", "hi")]),
+                                         authorized_integration_ids: [])
+
+    ProcessWhatsappWebhookJob.perform_now(event.id)
+
+    assert_nil ConversationMessage.find_by(external_id: "wamid.inj")
+  end
+
+  test "changes for another number in the same WABA go to that number's integration only" do
+    other = WhatsappIntegration.create!(account: accounts(:acme), environment: environments(:staging), vendor: "whatsapp",
+      config: { "phone_id" => "5550001", "business_account_id" => "9876543210", "token" => "t2", "inbox_enabled" => true })
+    payload = messages_payload([text_message("wamid.n2", "to number two")])
+    payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"] = "5550001"
+    event = WhatsappWebhookEvent.create!(body_sha256: "multi", payload: payload,
+                                         authorized_integration_ids: [integrations(:whatsapp).id, other.id])
+
+    ProcessWhatsappWebhookJob.perform_now(event.id)
+
+    message = ConversationMessage.find_by!(external_id: "wamid.n2")
+    assert_equal other.id, message.metadata.dig("whatsapp", "integration_id")
+    assert_equal "whatsapp_5550001_16505551234", message.conversation.visitor_token
+
+    payload["entry"][0]["changes"][0]["value"]["metadata"]["phone_number_id"] = "not-ours"
+    payload["entry"][0]["changes"][0]["value"]["messages"][0]["id"] = "wamid.n3"
+    run_webhook(payload)
+    assert_nil ConversationMessage.find_by(external_id: "wamid.n3")
+  end
+
   # --- Statuses on inbox messages ---
 
   test "status updates move an inbox message forward, keep history, and never regress" do
@@ -354,7 +383,8 @@ class ProcessWhatsappWebhookJobTest < ActiveJob::TestCase
   private
 
   def run_webhook(payload)
-    event = WhatsappWebhookEvent.create!(body_sha256: SecureRandom.hex(32), payload: payload)
+    event = WhatsappWebhookEvent.create!(body_sha256: SecureRandom.hex(32), payload: payload,
+                                         authorized_integration_ids: [integrations(:whatsapp).id])
     ProcessWhatsappWebhookJob.perform_now(event.id)
     event
   end

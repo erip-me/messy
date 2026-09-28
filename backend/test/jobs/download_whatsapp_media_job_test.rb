@@ -17,6 +17,8 @@ class DownloadWhatsappMediaJobTest < ActiveJob::TestCase
     MetaGraph.expects(:download).with("https://lookaside.fbsbx.com/whatsapp/media-1", token: "test_whatsapp_token", max_bytes: 100.megabytes)
       .returns("jpg")
 
+    ActionCable.server.expects(:broadcast).with("operator_inbox_#{@message.account_id}", has_entry(type: "message_updated")).once
+    ActionCable.server.stubs(:broadcast).with { |channel, _| channel != "operator_inbox_#{@message.account_id}" }
     DownloadWhatsappMediaJob.perform_now(@message.id)
     DownloadWhatsappMediaJob.perform_now(@message.id)
 

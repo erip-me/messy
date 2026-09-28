@@ -107,6 +107,18 @@ class WhatsappControllerTest < ActionDispatch::IntegrationTest
     assert_in_delta 23.hours.from_now, Time.zone.parse(response.parsed_body["window_expires_at"]), 5
   end
 
+  test "window only considers the environment's own business number" do
+    other = WhatsappIntegration.create!(account: accounts(:acme), environment: environments(:staging), vendor: "whatsapp",
+      config: { "phone_id" => "5550001", "business_account_id" => "other-waba", "token" => "t2" })
+    other_convo = WhatsappInbox.new(other).conversation_for("31612345678")
+    other_convo.conversation_messages.create!(account: other_convo.account, sender_type: "Customer", content: "hi", created_at: 1.hour.ago)
+
+    get "/whatsapp/window", params: { to: "31612345678" }, headers: api_key_headers(@env)
+
+    refute response.parsed_body["free_form_allowed"]
+    assert_nil response.parsed_body["conversation_id"]
+  end
+
   # --- Inbox reply ---
 
   test "an operator reply in a whatsapp conversation is sent through the Cloud API" do
@@ -137,6 +149,18 @@ class WhatsappControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, response.parsed_body.dig("conversation", "whatsapp", "free_form_allowed")
   end
 
+  test "message pagination follows created_at even when history was inserted later" do
+    conversation = customer_writes!("31612345678", at: 1.hour.ago)
+    recent = conversation.conversation_messages.create!(account: conversation.account, sender_type: "User", content: "recent", created_at: 30.minutes.ago)
+    old = conversation.conversation_messages.create!(account: conversation.account, sender_type: "Customer", content: "old history", created_at: 10.days.ago)
+
+    get "/conversations/#{conversation.id}/messages", params: { before: recent.id }, headers: auth_headers(@admin)
+
+    ids = response.parsed_body["messages"].map { |m| m["id"] }
+    assert_includes ids, old.id
+    refute_includes ids, recent.id
+  end
+
   # --- Embedded Signup ---
 
   test "embedded signup exchanges the code, subscribes the app and stores a coexistence number" do
@@ -161,7 +185,40 @@ class WhatsappControllerTest < ActionDispatch::IntegrationTest
                  [integration.phone_id, integration.token, integration.config["business_id"], integration.config.dig("onboarding", "coexistence")]
     assert_equal @env, integration.environment
     assert integration.inbox_enabled?
+    assert integration.platform_verified?
     refute_includes response.body, "business-token"
+  end
+
+  test "an unverified copy of the WABA id in another workspace doesn't block signup" do
+    @integration.update!(account: accounts(:other_co), environment: nil)
+    MetaGraph.stubs(:get).with("oauth/access_token", anything).returns("access_token" => "tok")
+    MetaGraph.stubs(:get).with("9876543210/phone_numbers", anything).returns("data" => [{ "id" => "p1" }])
+    MetaGraph.stubs(:get).with("p1", anything).returns({})
+    MetaGraph.stubs(:post).returns("success" => true)
+
+    with_env("META_APP_ID" => "app123", "META_APP_SECRET" => "sekret") do
+      post "/whatsapp/embedded_signup", params: { code: "c", waba_id: "9876543210" },
+        headers: auth_headers(@admin).merge("X-Environment-Id" => @env.id.to_s), as: :json
+    end
+
+    assert_response :created
+    assert_equal accounts(:acme), WhatsappIntegration.find_by(platform_verified_waba_id: "9876543210").account
+  end
+
+  test "a stale verification marker (WABA since changed) doesn't block signup" do
+    @integration.update!(account: accounts(:other_co), environment: nil, platform_verified_waba_id: "9876543210",
+                         config: @integration.config.merge("business_account_id" => "moved-on"))
+    MetaGraph.stubs(:get).with("oauth/access_token", anything).returns("access_token" => "tok")
+    MetaGraph.stubs(:get).with("9876543210/phone_numbers", anything).returns("data" => [{ "id" => "p1" }])
+    MetaGraph.stubs(:get).with("p1", anything).returns({})
+    MetaGraph.stubs(:post).returns("success" => true)
+
+    with_env("META_APP_ID" => "app123", "META_APP_SECRET" => "sekret") do
+      post "/whatsapp/embedded_signup", params: { code: "c", waba_id: "9876543210" },
+        headers: auth_headers(@admin).merge("X-Environment-Id" => @env.id.to_s), as: :json
+    end
+
+    assert_response :created
   end
 
   test "embedded signup is admin-only and needs server config" do
@@ -174,8 +231,20 @@ class WhatsappControllerTest < ActionDispatch::IntegrationTest
     assert_response :service_unavailable
   end
 
+  test "embedded signup refuses a WABA connected to another environment of the workspace" do
+    @integration.update!(environment: environments(:staging))
+
+    with_env("META_APP_ID" => "app123", "META_APP_SECRET" => "sekret") do
+      post "/whatsapp/embedded_signup", params: { code: "c", waba_id: "9876543210" },
+        headers: auth_headers(@admin).merge("X-Environment-Id" => @env.id.to_s), as: :json
+    end
+
+    assert_response :conflict
+    assert_equal environments(:staging), @integration.reload.environment
+  end
+
   test "embedded signup refuses a WABA owned by another workspace" do
-    @integration.update!(account: accounts(:other_co), environment: nil)
+    @integration.update!(account: accounts(:other_co), environment: nil, platform_verified_waba_id: "9876543210")
 
     with_env("META_APP_ID" => "app123", "META_APP_SECRET" => "sekret") do
       post "/whatsapp/embedded_signup", params: { code: "c", waba_id: "9876543210" }, headers: auth_headers(@admin), as: :json

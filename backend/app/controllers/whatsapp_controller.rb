@@ -51,8 +51,7 @@ class WhatsappController < ApplicationController
     to = normalized_to
     return render json: { error: "to is required" }, status: :unprocessable_entity unless to
 
-    customer = @account.customers.find_by(whatsapp_id: to)
-    conversation = customer && @account.conversations.source_whatsapp.find_by(customer: customer)
+    conversation = @account.conversations.source_whatsapp.find_by(visitor_token: inbox.thread_token(to))
     render json: { to: to, conversation_id: conversation&.id }.merge(window_json(conversation))
   end
 
@@ -77,9 +76,18 @@ class WhatsappController < ApplicationController
 
     waba_id = params.require(:waba_id).to_s
     code = params.require(:code).to_s
-    existing = WhatsappIntegration.for_waba(waba_id)
-    if existing && existing.account_id != @account.id
+    # Only a platform-verified claim elsewhere blocks this; an unverified copy of
+    # the WABA id in another workspace's config can't squat on it.
+    claimed_elsewhere = WhatsappIntegration.where(active: true, platform_verified_waba_id: waba_id)
+      .where("config->>'business_account_id' = ?", waba_id).where.not(account_id: @account.id).exists?
+    if claimed_elsewhere
       return render json: { error: "This WhatsApp Business Account is connected to another workspace" }, status: :conflict
+    end
+    existing = @account.integrations.where(type: "WhatsappIntegration")
+      .find_by("config->>'business_account_id' = ?", waba_id)
+    if existing && existing.environment_id != @environment.id
+      return render json: { error: "This WhatsApp Business Account is connected to another environment in this workspace; disconnect it there first" },
+                    status: :conflict
     end
 
     token = MetaGraph.get("oauth/access_token", client_id: ENV["META_APP_ID"],
@@ -111,6 +119,7 @@ class WhatsappController < ApplicationController
                         "platform_type" => details["platform_type"], "at" => Time.current.iso8601 }
     ).compact
     integration.active = true
+    integration.platform_verified_waba_id = waba_id
     integration.save!
 
     WhatsappCoexistenceSyncJob.perform_later(integration.id) if details["is_on_biz_app"]

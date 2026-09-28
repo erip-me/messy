@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_09_28_090000) do
+ActiveRecord::Schema[8.0].define(version: 2026_09_28_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -557,6 +557,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_28_090000) do
     t.datetime "updated_at", null: false
     t.bigint "environment_id"
     t.boolean "active", default: true, null: false
+    t.string "platform_verified_waba_id"
     t.index ["account_id", "kind", "active"], name: "index_integrations_on_account_id_and_kind_and_active"
     t.index ["account_id"], name: "index_integrations_on_account_id"
     t.index ["environment_id"], name: "index_integrations_on_environment_id"
@@ -1121,6 +1122,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_28_090000) do
     t.text "error"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "authorized_integration_ids", default: [], null: false, array: true
     t.index ["account_id"], name: "index_whatsapp_webhook_events_on_account_id"
     t.index ["body_sha256"], name: "index_whatsapp_webhook_events_on_body_sha256", unique: true
     t.index ["integration_id", "created_at"], name: "index_whatsapp_webhook_events_on_integration_id_and_created_at"

@@ -26,19 +26,29 @@ class WhatsappWebhooksController < ApplicationController
     payload = JSON.parse(body) rescue nil
     return head :bad_request unless payload.is_a?(Hash)
 
-    entry = Array(payload["entry"]).first
-    integration = WhatsappIntegration.for_waba(entry["id"]) if entry.is_a?(Hash)
-    secrets = [integration&.webhook_app_secret, ENV["META_APP_SECRET"].presence].compact.uniq
-    return head :not_found if secrets.empty?
-    unless secrets.any? { |s| valid_signature?(body, request.headers["X-Hub-Signature-256"], s) }
-      return head :forbidden
+    signature = request.headers["X-Hub-Signature-256"]
+    waba_ids = Array(payload["entry"]).filter_map { |e| e["id"].to_s if e.is_a?(Hash) && e["id"].present? }
+    integrations = WhatsappIntegration.where(active: true)
+      .where("config->>'business_account_id' IN (?)", waba_ids.presence || [""]).to_a
+    platform_signed = valid_signature?(body, signature, ENV["META_APP_SECRET"].presence)
+
+    # Each integration is authorized separately: by its own app secret, or by our
+    # platform app's secret if Embedded Signup proved its WABA. A tenant's own
+    # secret can't vouch for another tenant's WABA in the same payload, and a WABA
+    # id copied into config can't claim platform-signed traffic.
+    authorized = integrations.select do |i|
+      (platform_signed && i.platform_verified?) || valid_signature?(body, signature, i.app_secret.presence)
+    end
+    if authorized.empty? && !platform_signed
+      return head(integrations.empty? && ENV["META_APP_SECRET"].blank? ? :not_found : :forbidden)
     end
 
     digest = Digest::SHA256.hexdigest(body)
     event = WhatsappWebhookEvent.create_or_find_by!(body_sha256: digest) do |e|
       e.payload = payload
-      e.integration = integration
-      e.account = integration&.account
+      e.integration = authorized.first
+      e.account = authorized.first&.account
+      e.authorized_integration_ids = authorized.map(&:id)
     end
     # A retry of a delivery we already finished is acknowledged without new work.
     ProcessWhatsappWebhookJob.perform_later(event.id) unless event.processed_at

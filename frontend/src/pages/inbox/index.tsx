@@ -191,6 +191,9 @@ export function InboxPage() {
               loadConversation(activeConversationIdRef.current);
             }
           }
+          if (data.type === "message_updated" && activeConversationIdRef.current === data.conversation_id) {
+            setMessages((prev) => prev.map((m) => (m.id === data.message.id ? data.message : m)));
+          }
           if (data.type === "new_message" && activeConversationIdRef.current === data.conversation_id) {
             setMessages((prev) => {
               if (prev.find((m) => m.id === data.message.id)) return prev;
