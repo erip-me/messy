@@ -88,7 +88,75 @@ class WhatsappWebhooksControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "callback stores the event and queues processing once per unique delivery" do
+    payload = webhook_payload("delivered")
+    headers = { "X-Hub-Signature-256" => compute_signature(payload, @app_secret), "Content-Type" => "application/json" }
+
+    ProcessWhatsappWebhookJob.expects(:perform_later).once
+    assert_difference -> { WhatsappWebhookEvent.count }, 1 do
+      post "/whatsapp/webhook", params: payload, headers: headers, as: :json
+    end
+    assert_response :ok
+
+    event = WhatsappWebhookEvent.last
+    event.update!(processed_at: Time.current)
+    assert_no_difference -> { WhatsappWebhookEvent.count } do
+      post "/whatsapp/webhook", params: payload, headers: headers, as: :json
+    end
+    assert_response :ok
+    assert_equal @integration, event.integration
+    assert_equal payload, event.payload
+  end
+
+  test "callback rejects a malformed body" do
+    post "/whatsapp/webhook", params: "{not json", headers: { "Content-Type" => "application/json", "X-Hub-Signature-256" => "sha256=x" }
+
+    assert_response :bad_request
+    assert_equal 0, WhatsappWebhookEvent.count
+  end
+
+  test "callback accepts the Embedded Signup app secret from META_APP_SECRET" do
+    @integration.update!(config: @integration.config.except("app_secret"))
+    payload = webhook_payload("delivered")
+
+    with_env("META_APP_SECRET" => "platform_app_secret") do
+      post "/whatsapp/webhook", params: payload, as: :json,
+        headers: { "X-Hub-Signature-256" => compute_signature(payload, "platform_app_secret"), "Content-Type" => "application/json" }
+    end
+
+    assert_response :ok
+  end
+
+  test "callback acknowledges and stores a correctly signed event for an unknown WABA" do
+    payload = webhook_payload("delivered", business_account_id: "not_connected_yet")
+
+    with_env("META_APP_SECRET" => "platform_app_secret") do
+      post "/whatsapp/webhook", params: payload, as: :json,
+        headers: { "X-Hub-Signature-256" => compute_signature(payload, "platform_app_secret"), "Content-Type" => "application/json" }
+    end
+
+    assert_response :ok
+    assert_nil WhatsappWebhookEvent.last.integration
+  end
+
+  test "verify accepts the app-level WHATSAPP_VERIFY_TOKEN" do
+    with_env("WHATSAPP_VERIFY_TOKEN" => "platform_verify") do
+      get "/whatsapp/webhook", params: { "hub.mode" => "subscribe", "hub.verify_token" => "platform_verify", "hub.challenge" => "42" }
+    end
+
+    assert_response :ok
+    assert_equal "42", response.body
+  end
+
   private
+
+  def with_env(vars)
+    old = vars.keys.to_h { |k| [k, ENV[k]] }
+    vars.each { |k, v| ENV[k] = v }
+    yield
+  ensure
+    old.each { |k, v| ENV[k] = v }
+  end
 
   def webhook_payload(status, business_account_id: "9876543210")
     {

@@ -46,6 +46,8 @@ $.messages[].attachments[]: (empty)
 $.messages[].content: String
 $.messages[].conversation_id: Integer
 $.messages[].created_at: String
+$.messages[].delivery_status: Null
+$.messages[].external_id: Null
 $.messages[].id: Integer
 $.messages[].message_type: String
 $.messages[].metadata: {}

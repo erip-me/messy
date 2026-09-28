@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { VendorIcon } from "@/components/ui/vendor-icon";
+import { WhatsappEmbeddedSignup } from "@/components/whatsapp-embedded-signup";
 import {
   createIntegration,
   updateIntegration,
@@ -597,6 +598,9 @@ export function IntegrationsEditPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {vendor === "whatsapp" && (
+                    <WhatsappEmbeddedSignup onConnected={() => navigate("/integrations")} />
+                  )}
                   {fields.map((field) => (
                     <div key={field.key} className="space-y-2">
                       <Label htmlFor={field.key}>{field.label}</Label>

@@ -72,6 +72,18 @@ class Rack::Attack
     end
   end
 
+  # WhatsApp sends, per API key/JWT. Coexistence numbers are capped at 20 msg/s by Meta anyway.
+  throttle("whatsapp/messages", limit: 120, period: 1.minute) do |req|
+    if req.path == "/whatsapp/messages" && req.post?
+      auth = req.get_header("HTTP_AUTHORIZATION")
+      auth.present? ? Digest::SHA256.hexdigest(auth) : client_ip(req)
+    end
+  end
+
+  throttle("whatsapp/embedded_signup/ip", limit: 10, period: 1.hour) do |req|
+    client_ip(req) if req.path == "/whatsapp/embedded_signup" && req.post?
+  end
+
   self.throttled_responder = lambda do |_req|
     [429, { "Content-Type" => "application/json" },
      [{ error: "Too many requests. Please slow down and try again shortly." }.to_json]]

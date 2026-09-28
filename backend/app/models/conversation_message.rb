@@ -8,6 +8,11 @@ class ConversationMessage < ApplicationRecord
 
   enum :message_type, { text: 0, attachment: 1, system: 2, note: 3 }
 
+  # Attachment links in the inbox/widget JSON are signed and expire, so a leaked
+  # URL (customer WhatsApp media, email attachments) stops working. Clients get a
+  # fresh one on every fetch.
+  ATTACHMENT_URL_TTL = 1.hour
+
   validates :content, presence: true, unless: :has_attachments?
   validates :sender_type, inclusion: { in: %w[User Customer System] }
 
@@ -42,7 +47,9 @@ class ConversationMessage < ApplicationRecord
       metadata: metadata,
       read_by_visitor: read_by_visitor,
       read_by_operator: read_by_operator,
-      attachments: attachments.map { |a| { id: a.id, filename: a.filename.to_s, content_type: a.content_type, byte_size: a.byte_size, url: Rails.application.routes.url_helpers.rails_blob_url(a) } },
+      external_id: external_id,
+      delivery_status: delivery_status,
+      attachments: attachments.map { |a| { id: a.id, filename: a.filename.to_s, content_type: a.content_type, byte_size: a.byte_size, url: Rails.application.routes.url_helpers.rails_blob_url(a, expires_in: ATTACHMENT_URL_TTL) } },
       created_at: created_at
     }
   end
@@ -54,6 +61,9 @@ class ConversationMessage < ApplicationRecord
   end
 
   def update_conversation_timestamp
+    # Imported history (WhatsApp) arrives with its original, older timestamps.
+    return if conversation.last_message_at && created_at < conversation.last_message_at
+
     attrs = {
       last_message_at: created_at,
       last_message_preview: content&.truncate(100)

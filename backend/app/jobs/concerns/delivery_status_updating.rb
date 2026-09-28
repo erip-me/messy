@@ -13,11 +13,11 @@ module DeliveryStatusUpdating
     (rank[current_status] || -1) >= (rank[new_status] || -1)
   end
 
-  # Map a provider status onto the Message lifecycle. "read" (WhatsApp) is treated
-  # as delivered; SES never emits it, so this is safe for both.
+  # Map a provider status onto the Message lifecycle. "read"/"played" (WhatsApp) are treated
+  # as delivered; SES never emits them, so this is safe for both.
   def update_message_status(message, provider_status)
     case provider_status
-    when "delivered", "read"
+    when "delivered", "read", "played"
       message.update!(status: :delivered) if message.sent?
     when "failed"
       message.update!(status: :failed) unless message.failed?

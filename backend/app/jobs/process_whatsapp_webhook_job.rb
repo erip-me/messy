@@ -1,44 +1,28 @@
 class ProcessWhatsappWebhookJob < ApplicationJob
-  include DeliveryStatusUpdating
-
   queue_as :default
 
-  STATUS_RANK = { "accepted" => 0, "sent" => 1, "delivered" => 2, "read" => 3, "failed" => 99 }.freeze
+  # Safe to rerun: WhatsappInbox skips anything already stored.
+  retry_on StandardError, wait: :polynomially_longer, attempts: 5
 
-  def perform(payload)
-    return unless payload["object"] == "whatsapp_business_account"
+  def perform(event_id)
+    event = WhatsappWebhookEvent.find_by(id: event_id)
+    return if event.nil? || event.processed_at
+    return event.update!(processed_at: Time.current) unless event.payload["object"] == "whatsapp_business_account"
 
-    payload["entry"]&.each do |entry|
-      entry["changes"]&.each do |change|
-        next unless change["field"] == "messages"
-
-        statuses = change.dig("value", "statuses") || []
-        statuses.each { |status_data| process_status(status_data) }
+    Array(event.payload["entry"]).each do |entry|
+      next unless entry.is_a?(Hash)
+      integration = WhatsappIntegration.for_waba(entry["id"])
+      unless integration
+        Rails.logger.warn "[WhatsApp] webhook #{event.id}: no active integration for WABA #{entry["id"]}"
+        next
       end
-    end
-  end
-
-  private
-
-  def process_status(status_data)
-    provider_id = status_data["id"]
-    new_status = status_data["status"]
-    errors = status_data["errors"]
-
-    delivery = Delivery.find_by(provider_message_id: provider_id)
-    return unless delivery
-
-    # Only progress forward — never regress status
-    return if status_superseded?(delivery.status, new_status)
-
-    attrs = { status: new_status }
-    if errors.present?
-      attrs[:error] = errors.map { |e| "#{e["code"]}: #{e["title"]}" }.join("; ")
+      inbox = WhatsappInbox.new(integration)
+      Array(entry["changes"]).each { |change| inbox.process(change["field"], change["value"]) if change.is_a?(Hash) }
     end
 
-    delivery.update!(attrs)
-    update_message_status(delivery.message, new_status)
+    event.update!(processed_at: Time.current, error: nil)
+  rescue => e
+    event&.update_column(:error, "#{e.class}: #{e.message}".truncate(1000))
+    raise
   end
-
-  # update_message_status / status_superseded? provided by DeliveryStatusUpdating.
 end

@@ -43,7 +43,7 @@ This is a Ruby on Rails 8.0 API-only application that serves as a sophisticated 
 ### Multi-Channel Messaging
 - **Email**: SES and SMTP integrations
 - **SMS**: Twilio integration
-- **WhatsApp**: Twilio Business API
+- **WhatsApp**: Meta Cloud API, incl. Business App coexistence and the WhatsApp inbox (see ../docs/WHATSAPP.md)
 - **Push Notifications**: Mobile and web push support
 
 ### Webhook System

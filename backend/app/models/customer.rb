@@ -6,7 +6,7 @@ class Customer < ApplicationRecord
   has_many :segment_memberships, dependent: :destroy
   has_many :drip_enrollments, dependent: :destroy
 
-  validates :email, presence: true, unless: :anonymous?
+  validates :email, presence: true, unless: -> { anonymous? || whatsapp_id.present? }
   validates :email, uniqueness: { scope: :account_id, message: 'already exists' },
                     format: { with: URI::MailTo::EMAIL_REGEXP, message: 'is invalid' },
                     allow_blank: true

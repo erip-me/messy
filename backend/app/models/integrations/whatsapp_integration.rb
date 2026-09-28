@@ -1,6 +1,3 @@
-require 'net/http'
-require 'json'
-
 class WhatsappIntegration < Integration
   before_validation { self.kind = :whatsapp }
 
@@ -44,33 +41,53 @@ class WhatsappIntegration < Integration
     config['app_secret'] = value
   end
 
+  # Capture inbound WhatsApp messages as inbox conversations (set by Embedded
+  # Signup; opt-in for integrations that predate the inbox).
+  def inbox_enabled?
+    ActiveModel::Type::Boolean.new.cast(config['inbox_enabled']) == true
+  end
+
+  def display_phone_number
+    config['display_phone_number']
+  end
+
+  # Webhooks for numbers onboarded through our own Meta app (Embedded Signup) are
+  # signed with that app's secret, which lives in the environment, not in config.
+  def webhook_app_secret
+    app_secret.presence || ENV['META_APP_SECRET'].presence
+  end
+
+  def self.for_waba(waba_id)
+    return nil if waba_id.blank?
+    where(active: true).find_by("config->>'business_account_id' = ?", waba_id.to_s)
+  end
+
   def deliver!(message, recipient = nil)
+    to = format_phone_number(recipient || message.to)
+    post_message(build_payload(message, to))
+  end
+
+  # Sends one Cloud API message and returns Meta's response
+  # ({"messages" => [{"id" => "wamid..."}], ...}). `payload` is the type-specific
+  # part, e.g. { "to" => "316...", "type" => "text", "text" => { "body" => "Hi" } }.
+  def post_message(payload)
     raise "WhatsApp phone ID not configured" unless phone_id
     raise "WhatsApp token not configured" unless token
 
-    to = format_phone_number(recipient || message.to)
-    payload = build_payload(message, to)
+    MetaGraph.post("#{phone_id}/messages", token: token,
+                   body: { "messaging_product" => "whatsapp", "recipient_type" => "individual" }.merge(payload))
+  end
 
-    uri = URI.parse("https://graph.facebook.com/v21.0/#{phone_id}/messages")
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-    http.ipaddr = Resolv::DNS.new.getresource(uri.host, Resolv::DNS::Resource::IN::A).address.to_s
+  def send_text(to, text, reply_to: nil)
+    payload = { "to" => format_phone_number(to), "type" => "text", "text" => { "body" => text } }
+    payload["context"] = { "message_id" => reply_to } if reply_to
+    post_message(payload)
+  end
 
-    request = Net::HTTP::Post.new(uri.request_uri)
-    request["Content-Type"] = "application/json"
-    request["Authorization"] = "Bearer #{token}"
-    request.body = payload.to_json
-
-    response = http.request(request)
-
-    if response.code.to_i.between?(200, 299)
-      Rails.logger.info "WhatsApp message sent successfully: #{response.body}"
-      JSON.parse(response.body)
-    else
-      error_message = "WhatsApp API error: #{response.code} - #{response.body}"
-      Rails.logger.error error_message
-      raise error_message
-    end
+  def send_template(to, name:, language:, components: nil)
+    template = { "name" => name, "language" => { "code" => language } }
+    template["components"] = components if components.present?
+    post_message("to" => format_phone_number(to), "type" => "template", "template" => template)
   end
 
   private
@@ -141,29 +158,12 @@ class WhatsappIntegration < Integration
   end
 
   def fetch_approved_templates
-    cache_key = "whatsapp_templates/#{business_account_id}"
-    Rails.cache.fetch(cache_key, expires_in: 10.minutes) do
-      uri = URI.parse("https://graph.facebook.com/v21.0/#{business_account_id}/message_templates")
-      uri.query = URI.encode_www_form(fields: "name,status,language", limit: 100)
-
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = true
-      http.open_timeout = 5
-      http.read_timeout = 5
-
-      request = Net::HTTP::Get.new("#{uri.path}?#{uri.query}")
-      request["Authorization"] = "Bearer #{token}"
-
-      response = http.request(request)
-      if response.code.to_i.between?(200, 299)
-        data = JSON.parse(response.body)
-        (data["data"] || []).select { |t| t["status"] == "APPROVED" }
-      else
-        Rails.logger.error "Failed to fetch WhatsApp templates: #{response.code} - #{response.body}"
-        []
-      end
-    rescue StandardError => e
-      Rails.logger.error "Error fetching WhatsApp templates: #{e.message}"
+    Rails.cache.fetch("whatsapp_templates/#{business_account_id}", expires_in: 10.minutes) do
+      data = MetaGraph.get("#{business_account_id}/message_templates", token: token,
+                           fields: "name,status,language", limit: 100)
+      (data["data"] || []).select { |t| t["status"] == "APPROVED" }
+    rescue MetaGraph::Error => e
+      Rails.logger.error "Failed to fetch WhatsApp templates: #{e.message}"
       []
     end
   end

@@ -5,6 +5,11 @@ class ConversationDetailResource < ConversationResource
              :first_response_at, :resolved_at, :snoozed_until,
              :customer_id, :environment_id
 
+  attribute :whatsapp, if: proc { |c| c.source_whatsapp? } do |c|
+    expires = c.whatsapp_window_expires_at
+    { free_form_allowed: expires.present? && expires > Time.current, window_expires_at: expires }
+  end
+
   # Email tickets carry their thread details; the key is omitted for chat.
   attribute :email_thread, if: proc { |c| c.source_email? && c.email_thread } do |c|
     et = c.email_thread

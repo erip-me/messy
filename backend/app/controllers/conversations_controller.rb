@@ -91,6 +91,8 @@ class ConversationsController < ApplicationController
   end
 
   def create_message
+    return create_whatsapp_message if @conversation.source_whatsapp? && !params[:private]
+
     has_files = params[:attachments].present?
     message = @conversation.conversation_messages.new(
       account: @account,
@@ -312,6 +314,29 @@ class ConversationsController < ApplicationController
   end
 
   private
+
+  # Sent synchronously so the operator sees Meta's verdict (and the window rule)
+  # immediately. Pass `template: {name, language, components}` outside the window.
+  def create_whatsapp_message
+    if params[:attachments].present?
+      return render json: { error: "Attachments can't be sent to WhatsApp from the inbox yet" }, status: :unprocessable_entity
+    end
+    integration = @conversation.whatsapp_integration
+    return render json: { error: "This conversation's WhatsApp number is no longer connected" }, status: :unprocessable_entity unless integration&.active?
+
+    template = WhatsappInbox.template_from(params[:template]) if params[:template].present?
+    message = WhatsappInbox.new(integration).send_message(
+      @conversation, text: (params.require(:content).to_s unless template), template: template, user: current_user
+    )
+    render json: { message: message.as_chat_json }, status: :created
+  rescue WhatsappInbox::WindowClosed
+    render json: { error: "The 24h customer service window is closed; send an approved template instead.",
+                   code: "template_required" }, status: :unprocessable_entity
+  rescue WhatsappInbox::InvalidParams => e
+    render json: { error: e.message }, status: :unprocessable_entity
+  rescue MetaGraph::Error => e
+    render json: { error: e.message, meta_error_code: e.code }, status: :bad_gateway
+  end
 
   def detail_json(conversation)
     ConversationDetailResource.new(conversation, params: { current_user: current_user }).to_h

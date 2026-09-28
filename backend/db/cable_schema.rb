@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_09_23_090000) do
+ActiveRecord::Schema[8.0].define(version: 2026_09_28_090000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -208,6 +208,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_23_090000) do
     t.boolean "read_by_operator", default: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "external_id"
+    t.string "delivery_status"
+    t.index ["account_id", "external_id"], name: "index_conversation_messages_on_account_id_and_external_id", unique: true, where: "(external_id IS NOT NULL)"
     t.index ["account_id"], name: "index_conversation_messages_on_account_id"
     t.index ["conversation_id", "created_at"], name: "index_conversation_messages_on_conversation_id_and_created_at"
     t.index ["conversation_id"], name: "index_conversation_messages_on_conversation_id"
@@ -282,6 +285,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_23_090000) do
     t.index ["account_id", "source"], name: "index_conversations_on_account_id_and_source"
     t.index ["account_id", "status"], name: "index_conversations_on_account_id_and_status"
     t.index ["account_id", "ticket_number"], name: "index_conversations_on_account_id_and_ticket_number", unique: true, where: "(ticket_number IS NOT NULL)"
+    t.index ["account_id", "visitor_token"], name: "index_conversations_whatsapp_thread_unique", unique: true, where: "(source = 3)"
     t.index ["account_id"], name: "index_conversations_on_account_id"
     t.index ["assigned_user_id"], name: "index_conversations_on_assigned_user_id"
     t.index ["customer_id"], name: "index_conversations_on_customer_id"
@@ -346,8 +350,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_23_090000) do
     t.string "current_page_title"
     t.boolean "online", default: false
     t.jsonb "unsubscribed_categories", default: {}
+    t.string "whatsapp_id"
     t.index ["account_id", "anonymous_token"], name: "idx_customers_anonymous_token_unique", unique: true, where: "(anonymous_token IS NOT NULL)"
     t.index ["account_id", "email"], name: "index_customers_on_account_id_and_email", unique: true
+    t.index ["account_id", "whatsapp_id"], name: "index_customers_on_account_id_and_whatsapp_id", unique: true, where: "(whatsapp_id IS NOT NULL)"
     t.index ["account_id"], name: "index_customers_on_account_id"
     t.index ["email"], name: "index_customers_on_email"
   end
@@ -1094,6 +1100,33 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_23_090000) do
     t.index ["magic_link_token"], name: "index_users_on_magic_link_token"
   end
 
+  create_table "whatsapp_message_statuses", force: :cascade do |t|
+    t.bigint "account_id", null: false
+    t.string "wamid", null: false
+    t.string "status", null: false
+    t.datetime "occurred_at"
+    t.jsonb "payload", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_whatsapp_message_statuses_on_account_id"
+    t.index ["wamid", "status"], name: "index_whatsapp_message_statuses_on_wamid_and_status", unique: true
+  end
+
+  create_table "whatsapp_webhook_events", force: :cascade do |t|
+    t.bigint "account_id"
+    t.bigint "integration_id"
+    t.string "body_sha256", null: false
+    t.jsonb "payload", null: false
+    t.datetime "processed_at"
+    t.text "error"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_whatsapp_webhook_events_on_account_id"
+    t.index ["body_sha256"], name: "index_whatsapp_webhook_events_on_body_sha256", unique: true
+    t.index ["integration_id", "created_at"], name: "index_whatsapp_webhook_events_on_integration_id_and_created_at"
+    t.index ["integration_id"], name: "index_whatsapp_webhook_events_on_integration_id"
+  end
+
   add_foreign_key "account_memberships", "accounts"
   add_foreign_key "account_memberships", "users"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
@@ -1198,4 +1231,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_23_090000) do
   add_foreign_key "templates", "layouts"
   add_foreign_key "templates", "sending_identities", on_delete: :nullify
   add_foreign_key "users", "accounts"
+  add_foreign_key "whatsapp_message_statuses", "accounts", on_delete: :cascade
+  add_foreign_key "whatsapp_webhook_events", "accounts", on_delete: :cascade
+  add_foreign_key "whatsapp_webhook_events", "integrations", on_delete: :nullify
 end

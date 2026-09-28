@@ -150,9 +150,14 @@ Rails.application.routes.draw do
     end
   end
 
-  # WhatsApp Meta webhook (verification + status callbacks)
+  # WhatsApp Cloud API: webhook (verification + all notifications) and send/onboarding API
   get  'whatsapp/webhook', to: 'whatsapp_webhooks#verify'
   post 'whatsapp/webhook', to: 'whatsapp_webhooks#callback'
+  post 'whatsapp/messages',        to: 'whatsapp#create_message'
+  get  'whatsapp/window',          to: 'whatsapp#window'
+  get  'whatsapp/embedded_signup', to: 'whatsapp#signup_config'
+  post 'whatsapp/embedded_signup', to: 'whatsapp#signup'
+  get  'whatsapp/diagnostics',     to: 'whatsapp#diagnostics'
 
   # SES SNS webhook (delivery, bounce, complaint notifications)
   post 'ses/webhook', to: 'ses_webhooks#callback'
