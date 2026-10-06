@@ -7,6 +7,7 @@ import {
   Copy,
   Check,
   Trash2,
+  Pencil,
   Clock,
   Globe,
   Monitor,
@@ -19,10 +20,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import toast from "react-hot-toast";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { HelpHint } from "@/components/ui/help-hint";
-import { Customer, CustomerActivity, CustomerMessage, getCustomer, deleteCustomer, toggleUnsubscribe, unsubscribeAll, toggleCategoryUnsubscribe } from "@/api/customers";
+import { Customer, CustomerActivity, CustomerMessage, getCustomer, updateCustomer, deleteCustomer, toggleUnsubscribe, unsubscribeAll, toggleCategoryUnsubscribe } from "@/api/customers";
 import { ChannelTypeIcon } from "@/components/channel-icons";
 
 
@@ -63,6 +67,9 @@ export function CustomerShowPage() {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const { confirm, ConfirmDialog } = useConfirm();
+  const [editOpen, setEditOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ email: "", first_name: "", last_name: "", phone: "" });
 
   useEffect(() => {
     if (id) loadCustomer();
@@ -85,6 +92,38 @@ export function CustomerShowPage() {
     copyToClipboard(customer.email);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  };
+
+  const openEdit = () => {
+    if (!customer) return;
+    setForm({
+      email: customer.email || "",
+      first_name: customer.first_name || "",
+      last_name: customer.last_name || "",
+      phone: customer.phone || "",
+    });
+    setEditOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!customer) return;
+    try {
+      setSaving(true);
+      const updated = await updateCustomer(customer.id, {
+        email: form.email.trim(),
+        first_name: form.first_name.trim() || null,
+        last_name: form.last_name.trim() || null,
+        phone: form.phone.trim() || null,
+      });
+      // Keep the timeline etc. from the detail payload; only the row fields changed.
+      setCustomer({ ...customer, ...updated });
+      setEditOpen(false);
+      toast.success("Contact updated");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to update contact");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -193,6 +232,10 @@ export function CustomerShowPage() {
                 Unsub {ch}
               </Badge>
             ))}
+          <Button variant="ghost" size="sm" onClick={openEdit}>
+            <Pencil className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -594,6 +637,63 @@ export function CustomerShowPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Contact</DialogTitle>
+            <DialogDescription>
+              Changing the email sends future messages to the new address. Past messages stay listed under the old one.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-first-name">First name</Label>
+                <Input
+                  id="edit-first-name"
+                  value={form.first_name}
+                  onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-last-name">Last name</Label>
+                <Input
+                  id="edit-last-name"
+                  value={form.last_name}
+                  onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">Phone</Label>
+              <Input
+                id="edit-phone"
+                type="tel"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {ConfirmDialog}
     </div>

@@ -93,7 +93,7 @@ Rails.application.routes.draw do
       post :unregister
     end
   end
-  resources :customers, only: [:index, :show, :destroy] do
+  resources :customers, only: [:index, :show, :update, :destroy] do
     collection do
       get :recent_activities
       get :export

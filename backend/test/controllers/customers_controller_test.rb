@@ -17,6 +17,23 @@ class CustomersControllerTest < ActionDispatch::IntegrationTest
     assert data["unsubscribed_channels"]["sms"].present?
   end
 
+  test "update changes email and name, normalising the address" do
+    customer = customers(:john)
+    patch customer_path(customer), headers: @headers,
+          params: { customer: { email: "  John.New@Example.com ", first_name: "Johnny" } }, as: :json
+    assert_response :success
+    customer.reload
+    assert_equal "john.new@example.com", customer.email
+    assert_equal "Johnny", customer.first_name
+  end
+
+  test "update rejects an email another contact in the workspace already has" do
+    patch customer_path(customers(:john)), headers: @headers,
+          params: { customer: { email: customers(:jane).email } }, as: :json
+    assert_response :unprocessable_entity
+    assert_match(/already exists/, JSON.parse(response.body)["message"])
+  end
+
   test "export returns CSV scoped to the account with custom attribute columns" do
     get export_customers_path, headers: @headers
     assert_response :success

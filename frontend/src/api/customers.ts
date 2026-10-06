@@ -23,6 +23,7 @@ export interface Customer {
   email: string;
   first_name: string | null;
   last_name: string | null;
+  phone: string | null;
   custom_attributes: Record<string, string>;
   unsubscribed_channels: Record<string, string>;
   unsubscribed_categories: Record<string, string>;
@@ -71,6 +72,11 @@ export const getCustomers = (params?: { q?: string; page?: number; per_page?: nu
 
 export const getCustomer = (id: number) =>
   request.get<{ customer: Customer }>(`/customers/${id}`).then(r => r.data.customer);
+
+export const updateCustomer = (
+  id: number,
+  customer: Partial<Pick<Customer, 'email' | 'first_name' | 'last_name' | 'phone'>>
+) => request.patch<{ customer: Customer }>(`/customers/${id}`, { customer }).then(r => r.data.customer);
 
 export const deleteCustomer = (id: number) =>
   request.delete(`/customers/${id}`).then(r => r.data);

@@ -82,6 +82,21 @@ class CustomersController < ApplicationController
     }
   end
 
+  # Email is the key messages and identify calls match a contact on, so a new
+  # address is where future sends land; past messages stay under the old one.
+  def update
+    customer = resolved_account.customers.find(params[:id])
+    attrs = params.require(:customer).permit(:email, :first_name, :last_name, :phone)
+    attrs[:email] = attrs[:email].to_s.strip.downcase.presence if attrs.key?(:email)
+
+    if customer.update(attrs)
+      RecomputeSegmentMembershipsJob.perform_later(customer.id)
+      render json: { customer: CustomerResource.new(customer).to_h }
+    else
+      render json: { message: customer.errors.full_messages.join(', ') }, status: :unprocessable_entity
+    end
+  end
+
   def destroy
     customer = resolved_account.customers.find(params[:id])
     customer.destroy
