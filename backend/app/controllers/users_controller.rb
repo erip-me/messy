@@ -1,6 +1,6 @@
 class UsersController < ApplicationController
-  before_action :authenticate_user!, except: [:me]
-  before_action :set_account, except: [:me]
+  before_action :authenticate_user!, except: %i[me confirm_email_change]
+  before_action :set_account, except: %i[me request_email_change confirm_email_change]
   before_action :require_account_admin!, only: %i[create update destroy invitations revoke_invitation]
   before_action :set_user, only: %i[show update destroy]
 
@@ -78,6 +78,15 @@ class UsersController < ApplicationController
 
   # PATCH/PUT /users/1
   def update
+    # The login email is the magic-link credential. Letting an admin set it would
+    # let them point someone else's login at an address they control, and reach
+    # every other workspace that person belongs to. Only the owner changes it,
+    # via request_email_change.
+    if user_params.key?(:email) && user_params[:email].to_s.strip.downcase != @user.email
+      return render json: { message: "Only #{@user.name} can change their own email address" },
+                    status: :unprocessable_entity
+    end
+
     if demoting_last_admin?
       return render json: { message: "You can't remove the last admin of the workspace" }, status: :unprocessable_entity
     end
@@ -87,7 +96,7 @@ class UsersController < ApplicationController
       if user_params.key?(:role)
         membership.update!(role: user_params[:role])
       end
-      @user.update!(user_params.except(:role))
+      @user.update!(user_params.except(:role, :email))
     end
 
     render json: UserResource.new(@user.reload, params: { account: @account }).serialize
@@ -119,6 +128,53 @@ class UsersController < ApplicationController
     end
   end
 
+  # POST /users/email_change — the signed-in user asks to move their login to a
+  # new address. Nothing changes until the link sent there is clicked, which
+  # proves they own it (and a typo can't lock them out).
+  def request_email_change
+    new_email = params[:email].to_s.strip.downcase
+    unless new_email.match?(URI::MailTo::EMAIL_REGEXP)
+      return render json: { message: 'Enter a valid email address' }, status: :unprocessable_entity
+    end
+    if new_email == current_user.email
+      return render json: { message: "That's already your email address" }, status: :unprocessable_entity
+    end
+    # Same answer whether or not the address is taken, so this can't be used to
+    # probe which emails have Messy logins. A taken one just never confirms.
+    unless User.exists?(email: new_email)
+      UserMailer.with(user: current_user, new_email: new_email,
+                      token: email_change_verifier.generate(
+                        { 'user_id' => current_user.id, 'from' => current_user.email, 'to' => new_email },
+                        expires_in: 24.hours, purpose: :email_change
+                      )).email_change_confirmation.deliver_later
+    end
+    render json: { status: 'sent', email: new_email }, status: :accepted
+  end
+
+  # POST /users/confirm_email_change — token-only (the link may be opened in a
+  # browser that isn't signed in). Single use: it's bound to the old address,
+  # so once the email moves the token no longer matches.
+  def confirm_email_change
+    data = email_change_verifier.verified(params[:token].to_s, purpose: :email_change)
+    user = data && User.find_by(id: data['user_id'])
+    # Locked so two links minted from the same old address can't both pass the
+    # check: whichever commits first moves the email, and the other then fails it.
+    changed = user&.with_lock do
+      next false unless user.email == data['from']
+      # A login link already sent to the old address must not keep working.
+      user.update!(email: data['to'], magic_link_token: nil, magic_link_token_expires_at: nil)
+    end
+    unless changed
+      return render json: { message: 'This link is invalid or has expired' }, status: :unprocessable_entity
+    end
+
+    old_email = data['from']
+    UserMailer.with(user: user, old_email: old_email).email_changed_notice.deliver_later
+    render json: { status: 'changed', email: user.email }
+  rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
+    render json: { message: 'That address is no longer available' }, status: :unprocessable_entity
+  end
+
   def me
     authenticate_user!
     return unless current_user
@@ -134,6 +190,10 @@ class UsersController < ApplicationController
   end
 
   private
+
+  def email_change_verifier
+    Rails.application.message_verifier(:email_change)
+  end
 
   def set_account
     @account = resolved_account

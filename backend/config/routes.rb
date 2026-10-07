@@ -52,6 +52,8 @@ Rails.application.routes.draw do
     collection do
       get    'invitations',     to: 'users#invitations'
       delete 'invitations/:id', to: 'users#revoke_invitation'
+      post   'email_change',         to: 'users#request_email_change'
+      post   'confirm_email_change', to: 'users#confirm_email_change'
     end
   end
 

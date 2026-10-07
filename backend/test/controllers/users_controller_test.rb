@@ -138,4 +138,63 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "member", users(:admin).membership_for(accounts(:acme)).reload.role
   end
+
+  # The email-change mails carry the token, so these tests read it off the queue.
+  include ActiveJob::TestHelper
+  setup { ActiveJob::Base.queue_adapter = :test }
+  teardown { ActiveJob::Base.queue_adapter = :solid_queue }
+
+  test "admin cannot change another member's login email" do
+    regular = users(:regular)
+    patch "/users/#{regular.id}", params: { user: { email: "attacker@example.com" } },
+          headers: auth_headers(users(:admin)), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal "regular@acme.com", regular.reload.email
+  end
+
+  test "admin can still rename a member when the email is sent back unchanged" do
+    regular = users(:regular)
+    patch "/users/#{regular.id}", params: { user: { name: "Renamed", email: "Regular@acme.com " } },
+          headers: auth_headers(users(:admin)), as: :json
+
+    assert_response :success
+    assert_equal "Renamed", regular.reload.name
+  end
+
+  test "email change applies only after the link sent to the new address is used, once" do
+    user = users(:regular)
+    assert_enqueued_emails 1 do
+      post "/users/email_change", params: { email: " New@Example.com" },
+           headers: auth_headers(user), as: :json
+    end
+    assert_response :accepted
+    assert_equal "regular@acme.com", user.reload.email
+
+    job = enqueued_jobs.last
+    mail_params = job[:args].last["params"]
+    assert_equal "new@example.com", mail_params["new_email"]
+    token = mail_params["token"]
+
+    post "/users/confirm_email_change", params: { token: token }, as: :json
+    assert_response :success
+    assert_equal "new@example.com", user.reload.email
+
+    # Single use: the token is bound to the old address.
+    post "/users/confirm_email_change", params: { token: token }, as: :json
+    assert_response :unprocessable_entity
+  end
+
+  test "email change to an address that already has a login sends nothing but answers the same" do
+    assert_no_enqueued_emails do
+      post "/users/email_change", params: { email: "admin@acme.com" },
+           headers: auth_headers(users(:regular)), as: :json
+    end
+    assert_response :accepted
+  end
+
+  test "confirm rejects a forged token" do
+    post "/users/confirm_email_change", params: { token: "nope" }, as: :json
+    assert_response :unprocessable_entity
+  end
 end

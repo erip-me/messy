@@ -1,0 +1,21 @@
+<h1 style="margin: 0 0 12px; font-size: 20px; font-weight: 600; color: #0f172a;">
+  Confirm your new email address
+</h1>
+
+<p style="margin: 0 0 24px; font-size: 15px; color: #64748b; line-height: 1.6;">
+  Hi <%= @user.name %>, you asked to sign in to Messy with <strong><%= @new_email %></strong> from now on. Click the button below to confirm.
+</p>
+
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 0 28px;">
+  <tr>
+    <td style="border-radius: 9999px; background: #3b82f6;">
+      <a href="<%= @confirm_link %>" style="display: inline-block; padding: 12px 28px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 9999px;">
+        Confirm Email
+      </a>
+    </td>
+  </tr>
+</table>
+
+<p style="margin: 0; font-size: 13px; color: #94a3b8; line-height: 1.5;">
+  This link expires in 24 hours. If you didn't ask for this, you can ignore this email and nothing will change.
+</p>

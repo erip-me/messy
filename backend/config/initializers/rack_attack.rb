@@ -38,6 +38,15 @@ class Rack::Attack
     client_ip(req) if req.path == "/accounts" && req.post?
   end
 
+  # Each request emails an address the caller picks, so keep it tight.
+  throttle("email_change/ip", limit: 5, period: 1.hour) do |req|
+    client_ip(req) if req.path == "/users/email_change" && req.post?
+  end
+
+  throttle("confirm_email_change/ip", limit: 30, period: 5.minutes) do |req|
+    client_ip(req) if req.path == "/users/confirm_email_change" && req.post?
+  end
+
   # Public contact form. Each accepted request sends an email, so keep it tight.
   throttle("contact/ip", limit: 5, period: 1.hour) do |req|
     client_ip(req) if req.path == "/contact" && req.post?

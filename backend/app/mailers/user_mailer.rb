@@ -58,6 +58,24 @@ class UserMailer < ApplicationMailer
     mail(to: @user.email, subject: "#{@inviter.name} invited you to #{@account.name} on Messy")
   end
 
+  # Sent to the NEW address: clicking it is what proves the person owns it.
+  def email_change_confirmation
+    @user = params[:user]
+    @new_email = params[:new_email]
+    frontend_url = ENV.fetch('FRONTEND_URL', 'http://localhost:5174')
+    @confirm_link = "#{frontend_url}/confirm-email/#{params[:token]}"
+
+    mail(to: @new_email, subject: 'Confirm your new Messy email address')
+  end
+
+  # Sent to the OLD address after a change, so a change the owner didn't make
+  # doesn't go unnoticed.
+  def email_changed_notice
+    @user = params[:user]
+
+    mail(to: params[:old_email], subject: 'Your Messy email address was changed')
+  end
+
   def conversation_assigned
     @user = params[:user]
     @conversation = params[:conversation]

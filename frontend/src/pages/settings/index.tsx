@@ -26,6 +26,8 @@ export function SettingsPage() {
   const [trackingDomain, setTrackingDomain] = useState(account?.tracking_domain || "");
   const [retentionDays, setRetentionDays] = useState(account?.message_retention_days ?? 180);
   const [saving, setSaving] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     setName(account?.name || "");
@@ -60,9 +62,55 @@ export function SettingsPage() {
     }
   };
 
+  const handleEmailChange = async () => {
+    setSendingEmail(true);
+    try {
+      const res = await request.post("/users/email_change", { email: newEmail.trim() });
+      toast.success(`Confirmation link sent to ${res.data.email}`);
+      setNewEmail("");
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to send confirmation link");
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-2xl">
       <h1 className="text-2xl font-bold mb-6">Account Settings</h1>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-base">Your Login Email</CardTitle>
+          <CardDescription>
+            You sign in with <strong>{user?.email}</strong>. To change it, enter the new address and
+            click the confirmation link we send there. Nothing changes until you do.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-email">New email</Label>
+              <Input
+                id="new-email"
+                type="email"
+                placeholder="you@example.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
+            <Button onClick={handleEmailChange} disabled={sendingEmail || !newEmail.trim()} size="sm">
+              {sendingEmail ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending...
+                </>
+              ) : (
+                "Send confirmation link"
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mb-6">
         <CardHeader>

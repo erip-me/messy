@@ -40,6 +40,7 @@ import { SignupPage } from './pages/signup';
 import { VerifyEmailPage } from './pages/verify-email';
 import { OnboardingPage } from './pages/onboarding';
 import ValidatePage from './pages/validate';
+import ConfirmEmailPage from './pages/confirm-email';
 import { DashboardPage } from './pages/dashboard';
 
 // Real page components
@@ -126,6 +127,7 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/validate/:token" element={<ValidatePage />} />
+          <Route path="/confirm-email/:token" element={<ConfirmEmailPage />} />
           {/* OAuth consent for MCP connectors — needs a logged-in user; the page
               itself redirects to login (preserving the return URL) if not. */}
           <Route path="/oauth/consent" element={<OauthConsentPage />} />
