@@ -315,4 +315,29 @@ class TemplatesControllerTest < ActionDispatch::IntegrationTest
     identity.destroy!
     assert_nil t.reload.sending_identity_id
   end
+
+  test "send_test renders through the layout with the customer's attributes and stays out of drip stats" do
+    t = templates(:markdown_template)
+    t.update!(body: "# Hello {{first_name}}\n\nRole: {{role}} [Unsub]({{unsubscribe_url}})")
+    SesIntegration.any_instance.stubs(:deliver!).once
+    headers = auth_headers(users(:admin)).merge("X-Environment-Id" => environments(:production).id.to_s)
+
+    post "/templates/#{t.id}/send_test", params: { customer_id: customers(:john).id }, headers: headers, as: :json
+
+    assert_response :success
+    message = EmailMessage.find(JSON.parse(response.body)["message_id"])
+    assert_equal users(:admin).email, message.to
+    assert_equal "[TEST] Welcome", message.subject
+    assert message.body.start_with?("<html><body>")
+    assert_includes message.body, '<h1 style="color: blue;">Hello John</h1>'
+    assert_includes message.body, "Role: buyer"
+    assert_includes message.body, "test_unsubscribe"
+    assert_nil message.drip_campaign_id
+  end
+
+  test "send_test rejects non-email templates" do
+    post "/templates/#{templates(:welcome_sms).id}/send_test", params: { to: "a@b.com" },
+         headers: api_key_headers(environments(:production)), as: :json
+    assert_response :unprocessable_entity
+  end
 end

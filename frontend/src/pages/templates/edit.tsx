@@ -48,6 +48,7 @@ import { CHANNEL_CONFIG, Channel } from "@/utils/channel-config";
 import { Switch } from "@/components/ui/switch";
 import { transformMarkdown } from "@/utils/markdown-transformer";
 import { PreviewFrame, PlaintextPreview } from "@/components/template-preview";
+import { SendTemplateTest } from "@/components/send-template-test";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import toast from "react-hot-toast";
 
@@ -824,6 +825,11 @@ export function TemplateEditPage() {
                   <div className="border rounded-md min-h-[400px] bg-card">
                     {renderPreview()}
                   </div>
+                  {isEditMode && template?.channel === "email" && (
+                    <div className="mt-3">
+                      <SendTemplateTest templateId={template.id} />
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="source" className="mt-4">

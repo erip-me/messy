@@ -75,6 +75,7 @@ Rails.application.routes.draw do
     member do
       # `render` would shadow ActionController#render, hence the action name.
       post :render, action: :render_preview
+      post :send_test
       post :attachments, action: :add_attachment
       delete 'attachments/:attachment_id', action: :remove_attachment
     end

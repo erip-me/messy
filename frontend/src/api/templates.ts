@@ -136,3 +136,13 @@ export const addTemplateAttachment = (id: number, file: File) => {
 
 export const removeTemplateAttachment = (id: number, attachmentId: number) =>
   request.delete<Template>(`${controller}/${id}/attachments/${attachmentId}`).then(r => r.data);
+
+// Server-side render (POST /templates/:id/render): the exact pipeline real sends
+// use, layout and transformers included.
+export const renderTemplate = (id: number, data: Record<string, string> = {}) =>
+  request.post<{ subject: string; html: string; missing_variables: string[] }>(`${controller}/${id}/render`, { data }).then(r => r.data);
+
+// Sends one [TEST] copy of the saved template. `to` defaults to the signed-in
+// user; customer_id supplies the merge data.
+export const sendTemplateTest = (id: number, params: { to?: string; customer_id?: number; sending_identity_id?: number | null }) =>
+  request.post<{ message: string; message_id: number }>(`${controller}/${id}/send_test`, params).then(r => r.data);

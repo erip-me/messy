@@ -14,11 +14,11 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import toast from 'react-hot-toast';
 import { useConfirm } from '@/components/ui/confirm-dialog';
-import { transformMarkdown } from '@/utils/markdown-transformer';
 import { PreviewFrame, PlaintextPreview } from '@/components/template-preview';
 import { ConditionGroupBlock, serialiseGroup, hydrateGroup, uid } from '@/components/condition-builder';
 import { ConditionGroup, Attribute, getAttributes, getSegments, Segment } from '@/api/segments';
-import { listTemplates, Template } from '@/api/templates';
+import { listTemplates, renderTemplate, Template } from '@/api/templates';
+import { SendTemplateTest } from '@/components/send-template-test';
 import { listFolders, Folder as FolderType } from '@/api/folders';
 import { TemplateTreePicker } from '@/components/template-tree-picker';
 import { getSendingIdentities, SendingIdentity } from '@/api/sending-identities';
@@ -65,21 +65,26 @@ function fromApiStep(s: DripStep): StepDraft {
   };
 }
 
-// Client-side template preview (mirrors the templates editor / campaign wizard).
+// Server-rendered (POST /templates/:id/render), so the preview is exactly what
+// the step sends: layout, markdown transformers and all. Unknown variables
+// render empty.
 function TemplatePreview({ template }: { template: Template | null }) {
+  const [html, setHtml] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (!template) return;
+    setHtml(null);
+    setError(false);
+    renderTemplate(template.id).then(r => setHtml(r.html)).catch(() => setError(true));
+  }, [template]);
+
   if (!template || !template.body) {
     return <div className="p-6 text-muted-foreground text-sm text-center">Select a template to preview it</div>;
   }
-  try {
-    let preview = template.body.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, name) => name);
-    if (template.body_format === 'markdown') preview = transformMarkdown(preview, {});
-    if (template.channel !== 'email') {
-      return <PlaintextPreview text={preview} />;
-    }
-    return <PreviewFrame html={preview} minHeight={320} title="Template Preview" />;
-  } catch {
-    return <div className="p-4 text-destructive text-sm">Preview error</div>;
-  }
+  if (error) return <div className="p-4 text-destructive text-sm">Preview error</div>;
+  if (html === null) return <Skeleton className="h-80 m-4" />;
+  if (template.channel !== 'email') return <PlaintextPreview text={html} />;
+  return <PreviewFrame html={html} minHeight={320} title="Template Preview" />;
 }
 
 export function DripDesignerPage() {
@@ -571,6 +576,11 @@ export function DripDesignerPage() {
                       <div className="border rounded-md bg-card min-h-[200px] overflow-hidden">
                         <TemplatePreview template={selectedTemplate} />
                       </div>
+                      {selectedTemplate?.channel === 'email' && (
+                        <div className="mt-3">
+                          <SendTemplateTest templateId={selectedTemplate.id} sendingIdentityId={sendingIdentityId} />
+                        </div>
+                      )}
                     </TabsContent>
                   </Tabs>
                 </CardContent>
