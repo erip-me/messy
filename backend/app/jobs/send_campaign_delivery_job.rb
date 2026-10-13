@@ -42,12 +42,11 @@ class SendCampaignDeliveryJob < ApplicationJob
   private
 
   def render_content(campaign, customer, delivery)
-    content = campaign.template ? campaign.template.body : campaign.content.to_s
     unsubscribe_url = "#{@tracking_base_url}/campaign_track/#{delivery.tracking_token}/unsubscribe"
 
     variables = (customer&.liquid_variables || {}).merge('unsubscribe_url' => unsubscribe_url)
 
-    Liquid::Template.parse(content).render(variables)
+    campaign.render_body(variables)
   end
 
   def deliver_email(campaign, delivery, rendered_content)

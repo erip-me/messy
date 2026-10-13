@@ -32,6 +32,21 @@ class Campaign < ApplicationRecord
     environment.resolve_integration(kind, purpose: :campaign)
   end
 
+  # The send-ready body for one recipient. A template goes through
+  # TemplateRenderer (markdown transformers + layout), same as drips and
+  # transactional sends; free-form content is plain Liquid.
+  def render_body(variables)
+    return TemplateRenderer.call(template: template, variables: variables).body if template
+
+    Liquid::Template.parse(content.to_s).render(variables)
+  end
+
+  # Liquid source the recipient will see, layout included (for the
+  # unsubscribe-link check).
+  def body_source
+    template ? [template.body, template.layout&.body].compact.join("\n") : content.to_s
+  end
+
   # Computes stats for many campaigns in a fixed number of queries (3) instead of
   # ~2 per campaign. Returns { campaign_id => stats_hash }.
   def self.stats_for(campaigns)

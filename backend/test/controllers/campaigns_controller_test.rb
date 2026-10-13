@@ -132,6 +132,19 @@ class CampaignsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes message.body, "{{city}}"
   end
 
+  test "send_test renders a markdown template through its layout" do
+    campaign = campaigns(:email_draft)
+    campaign.update!(template: templates(:markdown_template))
+    SesIntegration.any_instance.stubs(:deliver!).once
+
+    post send_test_campaign_path(campaign), params: { customer_id: customers(:john).id }, headers: @headers
+    assert_response :success
+
+    body = EmailMessage.last.body
+    assert body.start_with?("<html><body>")
+    assert_includes body, '<h1 style="color: blue;">Hello</h1>'
+  end
+
   test "send_test rejects non-email campaign" do
     campaign = campaigns(:sms_draft)
     post send_test_campaign_path(campaign), params: { customer_id: customers(:john).id }, headers: @headers

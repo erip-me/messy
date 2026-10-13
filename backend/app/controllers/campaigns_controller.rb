@@ -50,7 +50,7 @@ class CampaignsController < ApplicationController
     return render json: { error: 'Campaign is not in draft status' }, status: :unprocessable_entity unless @campaign.status == 'draft'
 
     if @campaign.channel == 'email'
-      content = @campaign.template ? @campaign.template.body : @campaign.content.to_s
+      content = @campaign.body_source
       unless content.include?('{{unsubscribe_url}}') || content.include?('{{ unsubscribe_url }}')
         return render json: { error: 'Email campaigns must include an {{unsubscribe_url}} link' }, status: :unprocessable_entity
       end
@@ -71,7 +71,6 @@ class CampaignsController < ApplicationController
 
     return render json: { error: 'No email integration configured for this campaign' }, status: :unprocessable_entity unless @campaign.channel_integration
 
-    content = @campaign.template ? @campaign.template.body : @campaign.content.to_s
     tracking_base_url = @campaign.account.tracking_base_url
     test_unsubscribe_url = "#{tracking_base_url}/campaign_track/test_unsubscribe?email=#{CGI.escape(customer.email)}&channel=#{@campaign.channel}&campaign=#{CGI.escape(@campaign.name)}"
     variables = {
@@ -80,7 +79,7 @@ class CampaignsController < ApplicationController
       'email' => customer.email.to_s,
       'unsubscribe_url' => test_unsubscribe_url
     }.merge(customer.custom_attributes.transform_values(&:to_s))
-    rendered = Liquid::Template.parse(content).render(variables)
+    rendered = @campaign.render_body(variables)
 
     message = EmailMessage.create!(
       account: @campaign.account,

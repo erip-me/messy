@@ -3,10 +3,10 @@ import { ArrowLeft, Search, Folder, ChevronRight, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { CampaignChannel } from '@/api/campaigns';
-import { Template } from '@/api/templates';
+import { renderTemplate, Template } from '@/api/templates';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Folder as FolderType } from '@/api/folders';
 import { ChannelTypeIcon } from '@/components/channel-icons';
-import { transformMarkdown } from '@/utils/markdown-transformer';
 import { PreviewFrame, PlaintextPreview } from '@/components/template-preview';
 
 export function CampaignPreview({
@@ -18,30 +18,30 @@ export function CampaignPreview({
   template: Template | null;
   channel: CampaignChannel | null;
 }) {
-  const body = template?.body || content;
-  if (!body) {
+  // A template renders server-side (layout + transformers), exactly as it sends.
+  const [rendered, setRendered] = useState<{ id: number; html: string } | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    if (!template?.id) return;
+    setError(false);
+    renderTemplate(template.id).then(r => setRendered({ id: template.id, html: r.html })).catch(() => setError(true));
+  }, [template?.id]);
+
+  if (template?.id) {
+    if (error) return <div className="p-4 text-destructive text-sm">Preview error</div>;
+    if (rendered?.id !== template.id) return <Skeleton className="h-96 m-4" />;
+    if (channel !== 'email') return <PlaintextPreview text={rendered.html} />;
+    return <PreviewFrame html={rendered.html} minHeight={400} title="Campaign Preview" />;
+  }
+
+  if (!content) {
     return <div className="p-4 text-muted-foreground">No content to preview</div>;
   }
 
-  try {
-    let preview = body;
-
-    // Replace Liquid variables with placeholder names
-    preview = preview.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, name) => name);
-
-    if (template?.body_format === 'markdown') {
-      preview = transformMarkdown(preview, {});
-    }
-
-    // Plaintext channels
-    if (channel !== 'email') {
-      return <PlaintextPreview text={preview} />;
-    }
-
-    return <PreviewFrame html={preview} minHeight={400} title="Campaign Preview" />;
-  } catch {
-    return <div className="p-4 text-destructive text-sm">Preview error</div>;
-  }
+  // Free-form content: Liquid variables shown as their names.
+  const preview = content.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, name) => name);
+  if (channel !== 'email') return <PlaintextPreview text={preview} />;
+  return <PreviewFrame html={preview} minHeight={400} title="Campaign Preview" />;
 }
 
 // --- Template Picker Dialog ---
