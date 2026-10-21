@@ -32,11 +32,15 @@ ENV RACK_ENV production
 # Helps with docker vi editing
 ENV TERM vt100
 
+# Widget build deps, cached like the gems above until package-lock.json changes.
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev
+
 # Copy the main application.
 COPY . ./
 
 # Build the embeddable chat widget JS
-RUN npm install --production=false && npm run build
+RUN npm run build
 
 # Create pids folder manually
 RUN mkdir -p tmp/pids
