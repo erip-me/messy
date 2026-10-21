@@ -66,11 +66,13 @@ class SmtpIntegration < Integration
       mail.add_file(filename: attachment.filename.to_s, content: attachment.download, mime_type: attachment.content_type)
     end
 
-    envelope_to = mail.destinations
-    envelope_from = Mail::Address.new(from).address
-
-    Net::SMTP.start(smtp_server, port) do |smtp|
-      smtp.send_message mail.to_s, envelope_from, envelope_to
-    end
+    # Port 465 is implicit TLS; anything else upgrades with STARTTLS when offered.
+    # Credentials are optional so an open relay still works.
+    mail.delivery_method :smtp,
+      address: smtp_server, port: port.to_i,
+      user_name: username.presence, password: password.presence,
+      authentication: (username.present? ? :login : nil),
+      tls: port.to_i == 465, enable_starttls_auto: port.to_i != 465
+    mail.deliver!
   end
 end

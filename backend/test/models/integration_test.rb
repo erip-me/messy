@@ -223,4 +223,20 @@ class IntegrationTest < ActiveSupport::TestCase
     assert integration.valid?, integration.errors.full_messages.to_sentence
   end
 
+  test "smtp logs in with the stored credentials, implicit TLS on 465" do
+    smtp = SmtpIntegration.new(config: { "smtp_server" => "mail.example.com", "port" => "465",
+                                         "username" => "care@example.com", "password" => "pw" })
+    message = stub(to: "a@example.com", cc: nil, bcc: nil, tagged_subject: "Hi",
+                   inject_tracking_pixel: "<p>x</p>", tracked_html: "<p>x</p>", attachments: [])
+    settings = nil
+    Mail::SMTP.stubs(:new).with { |s| settings = s if s.any?; true }.returns(stub(deliver!: true, settings: {}))
+
+    smtp.deliver!(message, from: "Care <care@example.com>")
+
+    assert_equal "mail.example.com", settings[:address]
+    assert_equal 465, settings[:port]
+    assert_equal "care@example.com", settings[:user_name]
+    assert_equal "pw", settings[:password]
+    assert settings[:tls]
+  end
 end
