@@ -86,6 +86,22 @@ class MessagesControllerTest < ActionDispatch::IntegrationTest
     assert_includes message.body, "Hi Ann"
   end
 
+  test "trigger keeps the caller's reply_to" do
+    ProcessMessageJob.stubs(:perform_now)
+    accounts(:acme).templates.create!(
+      environment: environments(:production), name: "Contact", trigger: "site.contact",
+      channel: "email", subject: "Message from {{name}}", body: "{{name}} wrote", body_format: "markdown"
+    )
+
+    post "/messages/trigger",
+         params: { trigger: "site.contact", channel: "email", message: { to: "care@example.com", reply_to: "visitor@example.com" },
+                   data: { name: "Ann" } },
+         headers: api_key_headers(environments(:production)), as: :json
+
+    assert_response :created
+    assert_equal "visitor@example.com", Message.order(:id).last.reply_to
+  end
+
   test "trigger creates message from template" do
     ProcessMessageJob.stubs(:perform_now)
 

@@ -345,7 +345,7 @@ class MessagesController < ApplicationController
 
     # Only allow a list of trusted parameters through.
     def message_params
-      permitted = params.require(:message).permit(:to, :cc, :bcc, :subject, :body, :language, :sending_identity_id, attachments: [], metadata: {})
+      permitted = params.require(:message).permit(:to, :cc, :bcc, :reply_to, :subject, :body, :language, :sending_identity_id, attachments: [], metadata: {})
       if params[:message][:tags].present?
         tags = params[:message][:tags]
         if tags.is_a?(Array)

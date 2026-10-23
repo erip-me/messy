@@ -86,6 +86,7 @@ class ProcessMessageJob < ApplicationJob
         type: parent.type,
         trigger: parent.trigger,
         to: recipient[:raw],
+        reply_to: parent.reply_to,
         subject: parent.subject,
         body: parent.body,
         tags: parent.tags,

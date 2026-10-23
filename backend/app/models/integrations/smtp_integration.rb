@@ -49,6 +49,7 @@ class SmtpIntegration < Integration
       to        recipient || message.to
       cc        message.cc unless recipient
       bcc       message.bcc unless recipient
+      reply_to  message.reply_to if message.reply_to.present?
       subject   message.tagged_subject
     end
 

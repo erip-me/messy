@@ -226,7 +226,7 @@ class IntegrationTest < ActiveSupport::TestCase
   test "smtp logs in with the stored credentials, implicit TLS on 465" do
     smtp = SmtpIntegration.new(config: { "smtp_server" => "mail.example.com", "port" => "465",
                                          "username" => "care@example.com", "password" => "pw" })
-    message = stub(to: "a@example.com", cc: nil, bcc: nil, tagged_subject: "Hi",
+    message = stub(to: "a@example.com", cc: nil, bcc: nil, reply_to: nil, tagged_subject: "Hi",
                    inject_tracking_pixel: "<p>x</p>", tracked_html: "<p>x</p>", attachments: [])
     settings = nil
     Mail::SMTP.stubs(:new).with { |s| settings = s if s.any?; true }.returns(stub(deliver!: true, settings: {}))
@@ -238,5 +238,21 @@ class IntegrationTest < ActiveSupport::TestCase
     assert_equal "care@example.com", settings[:user_name]
     assert_equal "pw", settings[:password]
     assert settings[:tls]
+  end
+end
+
+class SmtpReplyToTest < ActiveSupport::TestCase
+  FakeSmtp = Struct.new(:settings, :sent) { def deliver!(mail) = self.sent = mail }
+
+  test "smtp sets Reply-To when the message has one" do
+    fake = FakeSmtp.new({})
+    Mail::SMTP.stubs(:new).returns(fake)
+    message = stub(to: "care@example.com", cc: nil, bcc: nil, reply_to: "visitor@example.com", tagged_subject: "Hi",
+                   inject_tracking_pixel: "<p>x</p>", tracked_html: "<p>x</p>", attachments: [])
+
+    SmtpIntegration.new(config: { "smtp_server" => "mail.example.com", "port" => "587" })
+                   .deliver!(message, from: "Care <care@example.com>")
+
+    assert_equal [ "visitor@example.com" ], fake.sent.reply_to
   end
 end

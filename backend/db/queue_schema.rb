@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_09_28_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_10_23_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -710,6 +710,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_09_28_120000) do
     t.integer "click_count", default: 0, null: false
     t.datetime "first_clicked_at"
     t.jsonb "metadata", default: {}, null: false
+    t.string "reply_to"
     t.index ["account_id", "created_at"], name: "index_messages_on_account_id_and_created_at", order: { created_at: :desc }
     t.index ["account_id"], name: "index_messages_on_account_id"
     t.index ["drip_campaign_id"], name: "index_messages_on_drip_campaign_id"
