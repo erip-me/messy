@@ -174,7 +174,7 @@ export function DashboardPage() {
           <p className="text-sm text-muted-foreground max-w-xs mb-6">
             Connect an email provider to start sending messages through Messy.
           </p>
-          <Button className="gap-2" onClick={() => navigate('/integrations')}>
+          <Button className="gap-2" onClick={() => navigate('/integrations/create')}>
             Add integration <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
