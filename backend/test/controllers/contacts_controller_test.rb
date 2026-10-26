@@ -85,6 +85,17 @@ class ContactsControllerTest < ActionDispatch::IntegrationTest
     assert_response :created
   end
 
+  test "waitlist signup needs only an email and is labelled in the subject" do
+    perform_enqueued_jobs do
+      post "/contact", params: { email: "ada@example.com", waitlist: true }, as: :json
+    end
+
+    assert_response :created
+    mail = ActionMailer::Base.deliveries.last
+    assert_equal "Managed waitlist: ada@example.com", mail.subject
+    assert_equal ["ada@example.com"], mail.reply_to
+  end
+
   test "honeypot silently swallows the submission" do
     assert_no_enqueued_emails do
       post "/contact", params: VALID.merge(website: "http://spam.example"), as: :json

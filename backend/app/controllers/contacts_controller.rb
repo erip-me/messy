@@ -1,7 +1,7 @@
 # Public, unauthenticated. Reached by the marketing site's contact and
 # enterprise forms (a static export on Cloudflare Pages, so it has no server of
 # its own). Abuse control: Rack::Attack throttle + honeypot. Nothing is
-# persisted; the enquiry is emailed to the sales inbox.
+# persisted; the enquiry (or Managed waitlist signup) is emailed to the sales inbox.
 #
 # ponytail: no Contact model. Email is the deliverable and the inbox is the
 # system of record. Add a table when someone wants a lead pipeline.
@@ -10,6 +10,8 @@ class ContactsController < ApplicationController
   # The enterprise wizard leaves both free-text answers optional; who they are and
   # what they're after (a required select on the client) is enough to reply.
   ENTERPRISE_REQUIRED = %i[name email company].freeze
+  # A waitlist signup is a one-field form on the pricing card.
+  WAITLIST_REQUIRED = %i[email].freeze
 
   # Every accepted field, with its max length. Anything else the client sends is
   # dropped rather than forwarded into an email we then have to trust. The
@@ -30,6 +32,7 @@ class ContactsController < ApplicationController
     contact = LIMITS.keys.index_with { |k| params[k].to_s.strip }
     contact[:channels] = Array(params[:channels]).first(MAX_CHANNELS).map { |c| c.to_s.strip }
     contact[:enterprise] = params[:enterprise].present?
+    contact[:waitlist] = params[:waitlist].present?
 
     errors = validate(contact)
     return render(json: { error: errors }, status: :unprocessable_entity) if errors.any?
@@ -41,7 +44,11 @@ class ContactsController < ApplicationController
   private
 
   def validate(contact)
-    required = contact[:enterprise] ? ENTERPRISE_REQUIRED : REQUIRED
+    required =
+      if contact[:waitlist] then WAITLIST_REQUIRED
+      elsif contact[:enterprise] then ENTERPRISE_REQUIRED
+      else REQUIRED
+      end
     errors = required.filter_map { |k| "#{k.to_s.humanize} is required" if contact[k].blank? }
     errors << "Email is invalid" if contact[:email].present? && !contact[:email].match?(URI::MailTo::EMAIL_REGEXP)
     LIMITS.each { |k, max| errors << "#{k.to_s.humanize} is too long" if contact[k].length > max }

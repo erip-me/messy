@@ -5,6 +5,7 @@ import { RootState } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageSkeleton } from "@/components/ui/table-skeleton";
 import { PAYMENT_STATUS_COLORS } from "@/lib/labels";
@@ -24,8 +25,10 @@ interface Plan {
   key: "free" | "byok" | "managed";
   name: string;
   amount: number; // cents, EUR
+  yearly_amount: number; // cents, EUR (15% off twelve months)
   coming_soon: boolean;
   purchasable: boolean;
+  yearly_purchasable: boolean;
 }
 
 interface BillingData {
@@ -72,6 +75,7 @@ export function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [actionPlan, setActionPlan] = useState<string | null>(null);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
 
   const loadBilling = useCallback(async () => {
     try {
@@ -115,7 +119,7 @@ export function BillingPage() {
   const handleCheckout = async (planKey: string) => {
     setActionPlan(planKey);
     try {
-      const res = await request.post("/billing/checkout", { plan: planKey });
+      const res = await request.post("/billing/checkout", { plan: planKey, interval: billingInterval });
       if (res.data?.url) {
         window.location.href = res.data.url;
       } else {
@@ -257,13 +261,27 @@ export function BillingPage() {
       {/* Plan options */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="text-base">Plans</CardTitle>
-          <CardDescription>Choose the plan that fits your team.</CardDescription>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-base">Plans</CardTitle>
+              <CardDescription>Choose the plan that fits your team.</CardDescription>
+            </div>
+            {billing.plans.some((p) => p.yearly_purchasable) && (
+              <Tabs value={billingInterval} onValueChange={(v) => setBillingInterval(v as "month" | "year")}>
+                <TabsList>
+                  <TabsTrigger value="month">Monthly</TabsTrigger>
+                  <TabsTrigger value="year">Yearly · 15% off</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
             {billing.plans.map((plan) => {
               const isCurrent = plan.key === billing.plan;
+              const yearly = billingInterval === "year";
+              const purchasable = yearly ? plan.yearly_purchasable : plan.purchasable;
               return (
                 <div
                   key={plan.key}
@@ -283,7 +301,9 @@ export function BillingPage() {
                     </div>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       {plan.amount > 0
-                        ? `${formatMoney(plan.amount)} / month`
+                        ? yearly
+                          ? `${formatMoney(plan.yearly_amount)} / year (${formatMoney(plan.yearly_amount / 12)} / month)`
+                          : `${formatMoney(plan.amount)} / month`
                         : plan.key === "free"
                           ? "Free: self-hosted, bring your own infrastructure"
                           : "Free"}
@@ -298,7 +318,7 @@ export function BillingPage() {
                       <Button variant="outline" size="sm" disabled>
                         Current
                       </Button>
-                    ) : plan.purchasable ? (
+                    ) : purchasable ? (
                       <Button
                         size="sm"
                         disabled={!configured || actionPlan === plan.key || openingPortal}

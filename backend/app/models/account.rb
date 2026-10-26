@@ -2,24 +2,28 @@
 # internal code keep the `account` name (see CLAUDE.md § Workspaces). "Account" in
 # user-facing copy means a person's login, which is `User`, not this.
 class Account < ApplicationRecord
-  # Billing plans. Paid plans map to a Stripe Price via env vars (set with the
-  # test/live keys). `free` is the open-source / self-host plan (no subscription).
+  # Billing plans. Paid plans map to a Stripe Price per interval via env vars (set
+  # with the test/live keys). Yearly is 15% off twelve months. `free` is the
+  # open-source / self-host plan (no subscription).
   PLANS = {
-    "free"    => { name: "Open source",    amount: 0,    price_env: nil,                   coming_soon: false },
-    "byok"    => { name: "Cloud · BYOK",    amount: 2000, price_env: "STRIPE_PRICE_BYOK",    coming_soon: false },
-    "managed" => { name: "Cloud · Managed", amount: 6000, price_env: "STRIPE_PRICE_MANAGED", coming_soon: false },
+    "free"    => { name: "Open source",    amount: 0,    yearly_amount: 0,     price_env: nil,                   coming_soon: false },
+    "byok"    => { name: "Cloud · BYOK",    amount: 2000, yearly_amount: 20400, price_env: "STRIPE_PRICE_BYOK",    coming_soon: false },
+    "managed" => { name: "Cloud · Managed", amount: 6000, yearly_amount: 61200, price_env: "STRIPE_PRICE_MANAGED", coming_soon: true },
   }.freeze
 
   PAID_PLANS = %w[byok managed].freeze
+  INTERVALS = %w[month year].freeze
 
-  def self.price_id_for(plan)
+  # Yearly prices live next to the monthly one: STRIPE_PRICE_BYOK_YEARLY.
+  def self.price_id_for(plan, interval = "month")
     env = PLANS.dig(plan, :price_env)
+    env &&= "#{env}_YEARLY" if interval == "year"
     env && ENV[env].presence
   end
 
   def self.plan_for_price(price_id)
     return nil if price_id.blank?
-    PLANS.keys.find { |k| price_id_for(k) == price_id }
+    PLANS.keys.find { |k| INTERVALS.any? { |i| price_id_for(k, i) == price_id } }
   end
 
   def paid_plan?

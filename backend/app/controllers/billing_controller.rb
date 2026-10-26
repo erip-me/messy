@@ -17,22 +17,27 @@ class BillingController < ApplicationController
       cancel_at_period_end: @account.subscription_cancel_at_period_end,
       has_subscription: @account.stripe_subscription_id.present?,
       plans: Account::PLANS.map do |key, v|
-        { key: key, name: v[:name], amount: v[:amount], coming_soon: v[:coming_soon],
-          purchasable: key != "free" && !v[:coming_soon] && Account.price_id_for(key).present? }
+        sellable = key != "free" && !v[:coming_soon]
+        { key: key, name: v[:name], amount: v[:amount], yearly_amount: v[:yearly_amount], coming_soon: v[:coming_soon],
+          purchasable: sellable && Account.price_id_for(key).present?,
+          yearly_purchasable: sellable && Account.price_id_for(key, "year").present? }
       end
     }
   end
 
-  # POST /billing/checkout { plan } — start a Stripe Checkout session for a paid plan.
+  # POST /billing/checkout { plan, interval } — start a Stripe Checkout session for a
+  # paid plan. interval is "month" (default) or "year".
   def checkout
     plan = params[:plan].to_s
+    interval = params[:interval].presence || "month"
     return render json: { error: "Unknown plan" }, status: :unprocessable_entity unless Account::PAID_PLANS.include?(plan)
+    return render json: { error: "Unknown billing interval" }, status: :unprocessable_entity unless Account::INTERVALS.include?(interval)
     return render json: { error: "This plan isn't available yet" }, status: :unprocessable_entity if Account::PLANS.dig(plan, :coming_soon)
     # An existing subscription must be changed via the portal — a second Checkout
     # would create a second subscription and double-bill the account.
     return render json: { error: "You already have a subscription. Use the billing portal to switch plans." }, status: :unprocessable_entity if @account.stripe_subscription_id.present?
 
-    price = Account.price_id_for(plan)
+    price = Account.price_id_for(plan, interval)
     return render json: { error: "Plan not configured" }, status: :unprocessable_entity if price.blank?
 
     session = Stripe::Checkout::Session.create(

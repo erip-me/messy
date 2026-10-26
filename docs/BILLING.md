@@ -10,11 +10,14 @@ return `503 "Billing is not configured"` and the in-app billing page shows a cal
 
 ## Plans
 
-| Plan key  | Product            | Price    | Stripe price env       |
-|-----------|--------------------|----------|------------------------|
-| `free`    | Open source / self-host | €0  | — (no subscription)    |
-| `byok`    | Cloud · BYOK       | €20/mo   | `STRIPE_PRICE_BYOK`    |
-| `managed` | Cloud · Managed    | €60/mo   | `STRIPE_PRICE_MANAGED` |
+| Plan key  | Product            | Monthly  | Yearly (15% off) | Stripe price envs |
+|-----------|--------------------|----------|------------------|-------------------|
+| `free`    | Open source / self-host | €0  | —                | — (no subscription) |
+| `byok`    | Cloud · BYOK       | €20/mo   | €204/yr          | `STRIPE_PRICE_BYOK`, `STRIPE_PRICE_BYOK_YEARLY` |
+| `managed` | Cloud · Managed    | €60/mo   | €612/yr          | `STRIPE_PRICE_MANAGED`, `STRIPE_PRICE_MANAGED_YEARLY` |
+
+A yearly price is optional: while its env var is unset, the plan is monthly-only and
+the in-app yearly toggle hides that plan's yearly option.
 
 Live prices are EUR, tax-exclusive (Stripe Tax adds VAT at checkout), lookup keys
 `messy_byok_eur_monthly` / `messy_managed_eur_monthly`.
@@ -28,6 +31,8 @@ STRIPE_SECRET_KEY=sk_test_...        # test or live secret key
 STRIPE_WEBHOOK_SECRET=whsec_...      # signing secret of the /billing/webhook endpoint
 STRIPE_PRICE_BYOK=price_...          # recurring €20/mo price ID
 STRIPE_PRICE_MANAGED=price_...       # recurring €60/mo price ID
+STRIPE_PRICE_BYOK_YEARLY=price_...   # recurring €204/yr price ID (optional)
+STRIPE_PRICE_MANAGED_YEARLY=price_...# recurring €612/yr price ID (optional)
 STRIPE_AUTOMATIC_TAX=false           # opt-out only; automatic tax is ON by default
 ```
 
@@ -35,8 +40,9 @@ If `STRIPE_SECRET_KEY` is unset, billing is simply off (graceful).
 
 ## One-time Stripe dashboard setup
 
-1. **Products & prices** — create two recurring products ($20/mo and $60/mo). Copy each
-   price ID into `STRIPE_PRICE_BYOK` / `STRIPE_PRICE_MANAGED`.
+1. **Products & prices** — create two recurring products (€20/mo and €60/mo), and on
+   each a second, yearly price (€204/yr and €612/yr). Copy each price ID into its
+   `STRIPE_PRICE_*` / `STRIPE_PRICE_*_YEARLY` env var.
 2. **Webhook** — add an endpoint pointing at `https://api.messy.sh/billing/webhook` and
    subscribe to:
    `checkout.session.completed`, `customer.subscription.created`,
@@ -44,7 +50,7 @@ If `STRIPE_SECRET_KEY` is unset, billing is simply off (graceful).
    `invoice.paid`, `invoice.payment_failed`.
    Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
 3. **Customer Portal** — enable it in Stripe and allow plan switching between the two
-   prices, cancellation, payment-method updates, and invoice history.
+   prices (monthly and yearly), cancellation, payment-method updates, and invoice history.
 4. **Tax** — Stripe Tax is active (NL head office, NL VAT registration, defaults:
    tax-exclusive, tax code `txcd_10103001` SaaS). Checkout adds 21% NL VAT for Dutch
    customers; EU businesses with a valid VAT ID get the reverse charge (0%, noted on
