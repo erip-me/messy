@@ -1,10 +1,12 @@
 $[].allow_reentry: Boolean
+$[].anchor_attribute: Null
 $[].created_at: String
 $[].enroll_existing_on_start: Boolean
 $[].environment_id: Integer
 $[].exit_on_segment_leave: Boolean
 $[].id: Integer
 $[].name: String
+$[].restart_attribute: Null
 $[].segment.id: Integer
 $[].segment.name: String
 $[].segment_id: Integer
