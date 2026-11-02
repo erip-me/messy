@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_10_23_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_11_02_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -408,6 +408,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_10_23_120000) do
     t.datetime "updated_at", null: false
     t.boolean "enroll_existing_on_start", default: true, null: false
     t.bigint "sending_identity_id"
+    t.string "anchor_attribute"
+    t.string "restart_attribute"
     t.index ["account_id", "status"], name: "index_drip_campaigns_on_account_id_and_status"
     t.index ["environment_id"], name: "index_drip_campaigns_on_environment_id"
     t.index ["segment_id"], name: "index_drip_campaigns_on_segment_id"

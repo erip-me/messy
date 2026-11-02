@@ -21,4 +21,17 @@ class DripCampaign < ApplicationRecord
   def active?
     status == "active"
   end
+
+  # When a step should fire. With anchor_attribute set, that is the customer's
+  # date attribute + delay_days (negative = before it), so the schedule follows
+  # the date even when it differs per customer. Nil when the attribute is
+  # missing or unparseable. Otherwise delay_days after the last sent step.
+  def step_run_at(step, enrollment)
+    return (enrollment.anchor_at || Time.current) + step.delay_days.days if anchor_attribute.blank?
+
+    time = Time.zone.parse(enrollment.customer.custom_attributes.to_h[anchor_attribute].to_s)
+    time && time + step.delay_days.days
+  rescue ArgumentError
+    nil
+  end
 end

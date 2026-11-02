@@ -19,7 +19,9 @@ class CustomerIdentifyController < ApplicationController
       customer.custom_attributes = (customer.custom_attributes || {}).merge(params[:custom_attributes].slice(*params[:custom_attributes].keys))
     end
 
+    before_attrs = customer.custom_attributes_was.to_h
     customer.save!
+    changed_keys = customer.custom_attributes.to_h.keys.reject { |k| customer.custom_attributes[k] == before_attrs[k] }
     membership_dirty = customer.id_previously_changed? ||
                        customer.saved_change_to_custom_attributes? ||
                        customer.saved_change_to_first_name? ||
@@ -27,7 +29,7 @@ class CustomerIdentifyController < ApplicationController
     customer.touch_last_seen
     customer.reload
 
-    RecomputeSegmentMembershipsJob.perform_later(customer.id) if membership_dirty
+    RecomputeSegmentMembershipsJob.perform_later(customer.id, changed_keys) if membership_dirty
 
     recent = @account.customer_activities
       .where(customer: customer, environment: @environment, activity_type: "identify")

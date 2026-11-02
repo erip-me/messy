@@ -6,7 +6,8 @@ class DripStep < ApplicationRecord
   ON_FAIL = %w[skip exit].freeze
 
   validates :position, presence: true
-  validates :delay_days, numericality: { greater_than_or_equal_to: 0 }
+  validates :delay_days, numericality: { only_integer: true }
+  validates :delay_days, numericality: { greater_than_or_equal_to: 0 }, unless: -> { drip_campaign&.anchor_attribute.present? }
   validates :on_fail, inclusion: { in: ON_FAIL }
 
   # A step with no conditions always sends; otherwise reuse the Segment DSL.

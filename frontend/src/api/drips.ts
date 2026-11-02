@@ -34,6 +34,8 @@ export interface Drip {
   exit_on_segment_leave: boolean;
   enroll_existing_on_start: boolean;
   sending_identity_id: number | null;
+  anchor_attribute: string | null;
+  restart_attribute: string | null;
   steps: DripStep[];
   stats: DripStats;
   created_at: string;

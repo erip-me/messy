@@ -101,7 +101,8 @@ class DripsController < ApplicationController
   end
 
   def drip_params
-    params.permit(:name, :segment_id, :environment_id, :allow_reentry, :exit_on_segment_leave, :enroll_existing_on_start, :sending_identity_id)
+    params.permit(:name, :segment_id, :environment_id, :allow_reentry, :exit_on_segment_leave, :enroll_existing_on_start, :sending_identity_id,
+                  :anchor_attribute, :restart_attribute)
   end
 
   # Upsert steps by position; remove steps no longer present that have never run.

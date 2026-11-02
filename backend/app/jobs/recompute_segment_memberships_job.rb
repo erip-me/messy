@@ -4,10 +4,10 @@
 class RecomputeSegmentMembershipsJob < ApplicationJob
   queue_as :default
 
-  def perform(customer_id)
+  def perform(customer_id, changed_keys = [])
     customer = Customer.find_by(id: customer_id)
     return unless customer
 
-    SegmentMembershipTracker.new(customer).sync
+    SegmentMembershipTracker.new(customer).sync(changed_keys)
   end
 end

@@ -44,6 +44,7 @@ class DripAdvanceJob < ApplicationJob
     steps = drip.ordered_steps
     step = steps[enrollment.current_position]
     return complete(enrollment) if step.nil?
+    return if anchored_step_handled?(drip, enrollment, step, steps)
 
     if condition_met?(step, enrollment.customer)
       result = DripStepSender.call(enrollment, step)
@@ -58,6 +59,31 @@ class DripAdvanceJob < ApplicationJob
     end
 
     advance(enrollment, steps)
+  end
+
+  # Anchored drips (anchor_attribute) re-read the date at fire time. Returns true
+  # when the step was rescheduled or skipped instead of evaluated:
+  #   - attribute missing: skip;
+  #   - date moved later: wait for the new time;
+  #   - the step's time was already past at enrollment: skip, don't send late.
+  # ponytail: a date moved EARLIER still waits for the old time; use restart_attribute for that.
+  def anchored_step_handled?(drip, enrollment, step, steps)
+    return false if drip.anchor_attribute.blank?
+
+    due = drip.step_run_at(step, enrollment)
+    if due && due > Time.current
+      enrollment.update!(next_run_at: due)
+      DripScheduler.enqueue(enrollment, due)
+      return true
+    end
+    reason = if due.nil? then "#{drip.anchor_attribute} missing"
+             elsif enrollment.entered_at && due < enrollment.entered_at then "due before enrollment"
+             end
+    return false unless reason
+
+    record_execution(enrollment, step, status: "skipped", reason: reason)
+    advance(enrollment, steps)
+    true
   end
 
   # Invoked once retries are exhausted: record the failing step and move on.
@@ -86,7 +112,7 @@ class DripAdvanceJob < ApplicationJob
       return
     end
 
-    run_at = (enrollment.anchor_at || Time.current) + next_step.delay_days.days
+    run_at = enrollment.drip_campaign.step_run_at(next_step, enrollment) || Time.current
     enrollment.assign_attributes(current_position: next_position, next_run_at: run_at)
     enrollment.save!
     DripScheduler.enqueue(enrollment, run_at)

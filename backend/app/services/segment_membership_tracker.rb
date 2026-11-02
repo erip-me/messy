@@ -12,7 +12,9 @@ class SegmentMembershipTracker
     @account = customer.account
   end
 
-  def sync
+  # changed_keys: custom attribute keys whose value just changed (from identify),
+  # used to restart drips keyed on one of them (restart_attribute).
+  def sync(changed_keys = [])
     active = @customer.segment_memberships.active.index_by(&:segment_id)
 
     segments = @account.segments.to_a
@@ -28,6 +30,8 @@ class SegmentMembershipTracker
         enter(segment)
       elsif !currently_in && membership
         leave(segment, membership)
+      elsif currently_in && changed_keys.any?
+        restart(segment, membership, changed_keys)
       end
     end
   end
@@ -75,6 +79,18 @@ class SegmentMembershipTracker
 
     @customer.drip_enrollments.active.where(drip_campaign_id: drip_ids)
       .update_all(status: "exited", exited_at: Time.current, next_run_at: nil)
+  end
+
+  # A customer still in the segment whose restart_attribute changed starts the
+  # drip over (e.g. a new payment link): the running enrollment is canceled and
+  # a fresh one begins. A customer who just entered was already enrolled fresh.
+  def restart(segment, membership, changed_keys)
+    DripCampaign.where(account_id: @account.id, segment_id: segment.id, status: "active",
+                       restart_attribute: changed_keys).find_each do |drip|
+      @customer.drip_enrollments.active.where(drip_campaign_id: drip.id)
+        .update_all(status: "canceled", exited_at: Time.current, next_run_at: nil)
+      DripEnroller.new(drip, @customer, membership: membership, restart: true).enroll
+    end
   end
 
   def log(segment, activity_type)

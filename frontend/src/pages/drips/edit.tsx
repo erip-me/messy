@@ -52,6 +52,12 @@ function newStep(): StepDraft {
   return { localId: uid(), templateId: null, channel: 'email', delayDays: 0, conditions: emptyGroup(), onFail: 'skip', sentCount: 0 };
 }
 
+function anchorLabel(days: number, attr: string): string {
+  if (days === 0) return `On ${attr}`;
+  const n = Math.abs(days);
+  return `${n} day${n === 1 ? '' : 's'} ${days < 0 ? 'before' : 'after'} ${attr}`;
+}
+
 function fromApiStep(s: DripStep): StepDraft {
   return {
     localId: uid(),
@@ -108,6 +114,8 @@ export function DripDesignerPage() {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [identities, setIdentities] = useState<SendingIdentity[]>([]);
   const [sendingIdentityId, setSendingIdentityId] = useState<number | null>(null);
+  // Set over the API/MCP: step delays then count from this customer date attribute.
+  const [anchorAttribute, setAnchorAttribute] = useState<string | null>(null);
   const [projection, setProjection] = useState<DripProjection | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -131,6 +139,7 @@ export function DripDesignerPage() {
         setExitOnLeave(d.exit_on_segment_leave);
         setEnrollExisting(d.enroll_existing_on_start);
         setSendingIdentityId(d.sending_identity_id);
+        setAnchorAttribute(d.anchor_attribute);
         setStatus(d.status);
         setSteps(d.steps.map(fromApiStep));
       })
@@ -410,7 +419,14 @@ export function DripDesignerPage() {
                     )}
 
                     {/* Wait node */}
-                    {step.delayDays > 0 && (
+                    {anchorAttribute ? (
+                      <div className="flex flex-col items-center">
+                        <button onClick={(e) => { e.stopPropagation(); setSelected(idx); }} className="flex items-center gap-2 rounded-full border bg-card shadow-sm px-3 py-1.5 text-xs hover:border-primary">
+                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />{anchorLabel(step.delayDays, anchorAttribute)}
+                        </button>
+                        <div className="h-4 w-px bg-border" />
+                      </div>
+                    ) : step.delayDays > 0 && (
                       <div className="flex flex-col items-center">
                         <button onClick={(e) => { e.stopPropagation(); setSelected(idx); }} className="flex items-center gap-2 rounded-full border bg-card shadow-sm px-3 py-1.5 text-xs hover:border-primary">
                           <Clock className="h-3.5 w-3.5 text-muted-foreground" />Wait {step.delayDays} day{step.delayDays === 1 ? "" : "s"}
@@ -539,9 +555,16 @@ export function DripDesignerPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Send after (days)</Label>
-                    <Input type="number" min={0} value={selectedStep.delayDays}
-                      onChange={e => updateStep(selected!, { delayDays: Math.max(0, Number(e.target.value) || 0) })} />
-                    <p className="text-xs text-muted-foreground">Counted from the previous message actually sent.</p>
+                    <Input type="number" min={anchorAttribute ? undefined : 0} value={selectedStep.delayDays}
+                      onChange={e => {
+                        const days = Number(e.target.value) || 0;
+                        updateStep(selected!, { delayDays: anchorAttribute ? days : Math.max(0, days) });
+                      }} />
+                    <p className="text-xs text-muted-foreground">
+                      {anchorAttribute
+                        ? `Counted from the customer's ${anchorAttribute} date. Negative = before it.`
+                        : 'Counted from the previous message actually sent.'}
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Only send if…</Label>

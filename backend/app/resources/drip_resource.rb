@@ -6,7 +6,7 @@ class DripResource
 
   attributes :id, :name, :status, :segment_id, :environment_id, :allow_reentry,
              :exit_on_segment_leave, :enroll_existing_on_start, :sending_identity_id,
-             :created_at, :updated_at
+             :anchor_attribute, :restart_attribute, :created_at, :updated_at
 
   attribute :segment do |drip|
     drip.segment && { id: drip.segment.id, name: drip.segment.name }

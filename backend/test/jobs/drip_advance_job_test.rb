@@ -186,4 +186,40 @@ class DripAdvanceJobTest < ActiveSupport::TestCase
     assert_equal 1, enrollment.current_position, "advances past the failed step instead of looping"
     assert_equal "active", enrollment.status
   end
+
+  test "anchored drip fires relative to a date attribute and skips steps already past at enrollment" do
+    drip = @account.drip_campaigns.create!(segment: @segment, name: "Link expiry", environment: @environment,
+                                           status: "active", anchor_attribute: "expires_at")
+    [-7, -4, -1, 0].each_with_index do |d, i|
+      drip.drip_steps.create!(account: @account, position: i, template: @template, delay_days: d)
+    end
+    expires = @t0 + 5.days # 2 days in, the -7 step is already past
+    customer = @account.customers.create!(email: "payer@x.test",
+      custom_attributes: { "is_seller" => true, "expires_at" => expires.iso8601 })
+
+    travel_to @t0 do
+      enrollment = DripEnroller.new(drip, customer).enroll
+      advance(enrollment) # -7 is before enrollment: skipped, not sent late
+      assert_equal "skipped", enrollment.drip_step_executions.last.status
+      assert_equal 1, enrollment.current_position
+      assert_equal((expires - 4.days).to_i, enrollment.next_run_at.to_i)
+    end
+
+    travel_to expires - 4.days do
+      enrollment = drip.drip_enrollments.last
+      advance(enrollment)
+      assert_equal "sent", enrollment.drip_step_executions.order(:id).last.status
+      assert_equal((expires - 1.day).to_i, enrollment.next_run_at.to_i)
+    end
+
+    # The date moves later: the due step waits for the new time.
+    later = expires + 3.days
+    customer.update!(custom_attributes: customer.custom_attributes.merge("expires_at" => later.iso8601))
+    travel_to expires - 1.day do
+      enrollment = drip.drip_enrollments.last
+      advance(enrollment)
+      assert_equal 2, enrollment.current_position
+      assert_equal((later - 1.day).to_i, enrollment.next_run_at.to_i)
+    end
+  end
 end

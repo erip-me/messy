@@ -82,4 +82,22 @@ class SegmentMembershipTrackerTest < ActiveSupport::TestCase
 
     assert_equal "exited", enrollment.reload.status
   end
+
+  test "a changed restart_attribute cancels the running enrollment and starts a fresh one" do
+    drip = @account.drip_campaigns.create!(segment: @segment, name: "Reminders", status: "active",
+                                           restart_attribute: "issued_at")
+    drip.drip_steps.create!(account: @account, position: 0, template: templates(:welcome), delay_days: 3)
+    DripScheduler.stubs(:enqueue)
+
+    SegmentMembershipTracker.new(@customer).sync
+    first = @customer.drip_enrollments.sole
+
+    SegmentMembershipTracker.new(@customer.reload).sync(["other"])
+    assert_equal 1, @customer.drip_enrollments.count, "unrelated attribute changes don't restart"
+
+    SegmentMembershipTracker.new(@customer.reload).sync(["issued_at"])
+    assert_equal "canceled", first.reload.status
+    assert_equal 1, @customer.drip_enrollments.active.count
+    assert_not_equal first.id, @customer.drip_enrollments.active.sole.id
+  end
 end
