@@ -175,7 +175,10 @@ export function InboxPage() {
   // WebSocket for inbox updates
   useEffect(() => {
     if (!account) return;
-    const cable = createAuthenticatedConsumer();
+    const cable = createAuthenticatedConsumer(() => {
+      loadConversations();
+      if (activeConversationIdRef.current) loadConversation(activeConversationIdRef.current);
+    });
     if (!cable) return;
 
     const subscription = cable.subscriptions.create(

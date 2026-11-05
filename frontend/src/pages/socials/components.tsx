@@ -580,7 +580,9 @@ export function PostingLog({ postId, regionId }: { postId: number; regionId: num
   useEffect(() => {
     getSocialPostDeliveries(postId).then(setRows).catch(() => undefined);
 
-    const cable = createAuthenticatedConsumer();
+    const cable = createAuthenticatedConsumer(() => {
+      getSocialPostDeliveries(postId).then(setRows).catch(() => undefined);
+    });
     if (!cable) return;
     const sub = cable.subscriptions.create(
       { channel: 'SocialRegionChannel', region_id: regionId },

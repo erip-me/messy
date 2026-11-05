@@ -200,7 +200,9 @@ export function LiveActivityPage() {
 
   const connectToCable = () => {
     try {
-      cableRef.current = createAuthenticatedConsumer();
+      cableRef.current = createAuthenticatedConsumer(() => {
+        if (!isPausedRef.current) fetchRecentFeed();
+      });
       if (!cableRef.current) return;
 
       subscriptionRef.current = cableRef.current.subscriptions.create(

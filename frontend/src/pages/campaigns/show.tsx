@@ -106,7 +106,10 @@ export function CampaignShowPage() {
   useEffect(() => {
     if (!campaign?.id) return;
 
-    const cable = createAuthenticatedConsumer();
+    const cable = createAuthenticatedConsumer(() => {
+      loadCampaign();
+      loadDeliveriesRef.current();
+    });
     if (!cable) return;
     cableRef.current = cable;
 

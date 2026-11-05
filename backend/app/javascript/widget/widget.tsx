@@ -2,7 +2,7 @@ import { h } from 'preact';
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import type { MessyConfig, WidgetConfig, Conversation, Message } from './types';
 import { initApi, getVisitorToken, fetchConfig, fetchConversations, fetchUnreadCount } from './services/api';
-import { initCable, subscribeToPresence, sendPresenceHeartbeat, subscribeToWidgetConfig, subscribeToConversation } from './services/cable';
+import { initCable, onResync, subscribeToPresence, sendPresenceHeartbeat, subscribeToWidgetConfig, subscribeToConversation } from './services/cable';
 import { ChatButton } from './components/ChatButton';
 import { ChatWindow } from './components/ChatWindow';
 
@@ -42,6 +42,12 @@ export function Widget({ config: messyConfig }: Props) {
 
         initCable(getVisitorToken(), messyConfig.widgetId);
         subscribeToPresence();
+
+        // Catch up on broadcasts missed while the socket was down (operator count, unread)
+        onResync(() => {
+          fetchConfig().then(setWidgetConfig).catch(() => {});
+          if (!isOpenRef.current) fetchUnreadCount().then((res) => setUnreadCount(res.count)).catch(() => {});
+        });
 
         // Track browsing history — debounced URL change detection
         let lastSentUrl = '';

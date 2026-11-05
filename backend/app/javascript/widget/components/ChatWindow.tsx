@@ -2,6 +2,7 @@ import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import type { WidgetConfig, Conversation, Message } from '../types';
 import { createConversation, fetchMessages, sendMessage, markRead, submitOfflineForm } from '../services/api';
+import { onResync } from '../services/cable';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { TagButtons } from './TagButtons';
@@ -73,6 +74,24 @@ export function ChatWindow({ config, conversation, onConversationCreated, onClos
     if (conversation) {
       loadMessages(conversation.id);
     }
+  }, [conversation?.id]);
+
+  // Merge in the latest page after a reconnect or tab refocus, keeping older pages already loaded.
+  // ponytail: one page (20) of catch-up; a longer gap needs a since-id query on the API.
+  useEffect(() => {
+    if (!conversation) return;
+    const convId = conversation.id;
+    return onResync(() => {
+      fetchMessages(convId).then((res) => {
+        setMessages((prev) => {
+          const known = new Set(prev.map((m) => m.id));
+          const missed = res.messages.filter((m) => !known.has(m.id));
+          return missed.length ? [...prev, ...missed].sort((a, b) => a.id - b.id) : prev;
+        });
+        const last = res.messages[res.messages.length - 1];
+        if (last) markRead(convId, last.id).catch(() => {});
+      }).catch(() => {});
+    });
   }, [conversation?.id]);
 
   async function loadMessages(convId: number) {

@@ -176,7 +176,7 @@ export function MessagesIndexPage() {
   useEffect(() => {
     if (!currentUser) return;
 
-    cableRef.current = createAuthenticatedConsumer();
+    cableRef.current = createAuthenticatedConsumer(scheduleRefresh);
     if (!cableRef.current) return;
 
     subscriptionRef.current = cableRef.current.subscriptions.create(

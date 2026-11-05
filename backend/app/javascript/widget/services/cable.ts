@@ -10,6 +10,28 @@ let subscriptions: Map<string, MessageHandler> = new Map();
 let wsUrl = '';
 let visitorToken = '';
 let widgetIdStr = '';
+let retries = 0;
+let hasConnected = false;
+let resyncPending = false;
+const resyncHandlers = new Set<() => void>();
+
+// The ingress closes WebSockets on config changes, so anything broadcast while we
+// are reconnecting is lost. Handlers refetch it over HTTP: after every reconnect
+// (never the first connect) and whenever the page comes back to the foreground.
+export function onResync(handler: () => void): () => void {
+  resyncHandlers.add(handler);
+  return () => { resyncHandlers.delete(handler); };
+}
+
+function resync() {
+  resyncHandlers.forEach((handler) => handler());
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || subscriptions.size === 0) return;
+  connect(); // no-op unless the socket is down; background tabs throttle the retry timer
+  resync();
+});
 
 export function initCable(token: string, widgetId: string) {
   const scripts = document.querySelectorAll('script[src*="messy-widget"]');
@@ -29,6 +51,8 @@ function connect() {
 
   ws.onopen = () => {
     console.log('[Messy] WebSocket connected');
+    resyncPending = hasConnected;
+    hasConnected = true;
     // Re-subscribe to all channels
     subscriptions.forEach((_, identifier) => {
       sendSubscribe(identifier);
@@ -42,8 +66,16 @@ function connect() {
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.type === 'ping') return;
-    if (data.type === 'welcome') { console.log('[Messy] WebSocket welcome'); return; }
-    if (data.type === 'confirm_subscription') { console.log('[Messy] Subscribed to', data.identifier); return; }
+    if (data.type === 'welcome') { console.log('[Messy] WebSocket welcome'); retries = 0; return; }
+    if (data.type === 'confirm_subscription') {
+      console.log('[Messy] Subscribed to', data.identifier);
+      // Refetch once the server confirms, so nothing falls between the fetch and the stream.
+      if (resyncPending) {
+        resyncPending = false;
+        resync();
+      }
+      return;
+    }
     if (data.type === 'reject_subscription') { console.warn('[Messy] Subscription rejected', data.identifier); return; }
 
     console.log('[Messy] WS message received:', JSON.stringify(data));
@@ -60,8 +92,10 @@ function connect() {
   };
 
   ws.onclose = () => {
-    // Reconnect after delay
-    setTimeout(connect, 3000);
+    // Exponential backoff with jitter (1s up to 30s), so a restarted server is not stampeded
+    const delay = Math.min(30000, 1000 * 2 ** retries) * (0.5 + Math.random() / 2);
+    retries++;
+    setTimeout(connect, delay);
   };
 }
 

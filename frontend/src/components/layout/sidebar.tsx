@@ -291,7 +291,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
   };
 
   useEffect(() => {
-    const cable = createAuthenticatedConsumer();
+    const cable = createAuthenticatedConsumer(refreshUnread);
     if (!cable) return;
     cableRef.current = cable;
 
