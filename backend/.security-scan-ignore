@@ -1,0 +1,3 @@
+test/fixtures/campaign_deliveries.yml  # test fixture: made-up hex tracking tokens
+test/fixtures/environments.yml  # test fixture: made-up environment API keys
+lib/tasks/demo.rake  # demo:seed data: fake provider credentials marked not-real (see CLAUDE.md, Demo data)

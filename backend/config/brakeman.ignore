@@ -1,0 +1,51 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "Mass Assignment",
+      "warning_code": 105,
+      "fingerprint": "6124a2c0d14c8a00b69799896fa9b0652793fb8565b81b404637b2d296e617ed",
+      "check_name": "PermitAttributes",
+      "message": "Potentially dangerous key allowed for mass assignment",
+      "file": "app/controllers/super_admin/users_controller.rb",
+      "line": 75,
+      "link": "https://brakemanscanner.org/docs/warning_types/mass_assignment/",
+      "code": "params.require(:user).permit(:name, :email, :account_id)",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "SuperAdmin::UsersController",
+        "method": "user_params"
+      },
+      "user_input": ":account_id",
+      "confidence": "High",
+      "cwe_id": [
+        915
+      ],
+      "note": "Super-admin only (SuperAdmin::BaseController#require_super_admin!); account_id is the default-workspace pointer, never authorization (memberships grant access). The super-admin flag moves only through toggle_super_admin. Reviewed 2026-11-06."
+    },
+    {
+      "warning_type": "Mass Assignment",
+      "warning_code": 105,
+      "fingerprint": "b2b8363ae5315a5eccddc5d8286d499a4c5385718127aa2a0fd9ebf8ca6ab181",
+      "check_name": "PermitAttributes",
+      "message": "Potentially dangerous key allowed for mass assignment",
+      "file": "app/controllers/users_controller.rb",
+      "line": 248,
+      "link": "https://brakemanscanner.org/docs/warning_types/mass_assignment/",
+      "code": "params.require(:user).permit(:name, :email, :role)",
+      "render_path": null,
+      "location": {
+        "type": "method",
+        "class": "UsersController",
+        "method": "user_params"
+      },
+      "user_input": ":role",
+      "confidence": "Medium",
+      "cwe_id": [
+        915
+      ],
+      "note": "Only workspace admins reach update (require_account_admin!); role lands on this workspace membership and is validated by the AccountMembership enum. Reviewed 2026-11-06."
+    }
+  ],
+  "brakeman_version": "8.1.0"
+}

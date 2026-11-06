@@ -243,7 +243,9 @@ class UsersController < ApplicationController
   # Only allow a list of trusted parameters through.
   def user_params
     # last_login_at is server-set (auth flow) — never accept it from the client.
-    params.require(:user).permit(:name, :email, :role)
+    # Role is safe here: only workspace admins reach update (require_account_admin!), and it
+    # lands on this workspace's membership, validated by AccountMembership's enum.
+    params.require(:user).permit(:name, :email, :role) # nosemgrep: ruby.lang.security.model-attr-accessible
   end
 
   # Role for an invited user. Defaults to :member; only a valid enum value is

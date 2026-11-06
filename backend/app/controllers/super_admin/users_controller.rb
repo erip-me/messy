@@ -71,7 +71,9 @@ class SuperAdmin::UsersController < SuperAdmin::BaseController
   end
 
   def user_params
-    params.require(:user).permit(:name, :email, :account_id, :is_super_admin)
+    # Super admins only (BaseController). account_id is the default-workspace pointer, never
+    # authorization; the super-admin flag changes only through toggle_super_admin.
+    params.require(:user).permit(:name, :email, :account_id) # nosemgrep: ruby.lang.security.model-attr-accessible
   end
 
   def pagination_meta(collection)

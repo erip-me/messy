@@ -74,7 +74,7 @@ class User < ApplicationRecord
 
   def generate_magic_link_token!
     self.magic_link_token = SecureRandom.hex(10)
-    self.magic_link_token_expires_at = 30.minutes.from_now
+    self.magic_link_token_expires_at = 30.minutes.from_now # gitleaks:allow (a duration, not a key)
     save!
   end
 

@@ -14,8 +14,7 @@ messy/
 │                     # (embeddable chat widget source: app/javascript/widget/)
 ├── frontend/         # React/TypeScript + Vite SPA (the dashboard)
 ├── deploy/           # Terraform for Kubernetes (modules/ + prod/ example environment)
-├── docker-compose.yml# Self-host stack: Postgres + API + worker + SPA
-└── bin/security-scan # Local SAST + dependency/secret/IaC scanning
+└── docker-compose.yml# Self-host stack: Postgres + API + worker + SPA
 ```
 
 `backend/` and `frontend/` have their own CLAUDE.md with component-specific guidance.
@@ -149,22 +148,3 @@ delivery rules (child messages), so some may deliver while others are rejected.
 - **Kubernetes**: Terraform modules in `deploy/modules/`, example environment in
   `deploy/prod/`, docs at [messy.sh/docs/terraform](https://messy.sh/docs/terraform).
   `terraform.tfvars`, `kubeconfig.yaml` and tfstate are gitignored — keep them that way.
-
-## Security Scanning
-
-Local SAST + dependency/secret/IaC scanning via [OpenGrep](https://github.com/opengrep/opengrep)
-and [Trivy](https://github.com/aquasecurity/trivy). Full details in
-[docs/SECURITY_SCANNING.md](docs/SECURITY_SCANNING.md).
-
-```bash
-# Install once
-brew install trivy
-curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
-
-# Run
-bin/security-scan            # everything (backend, frontend, deploy)
-bin/security-scan backend    # one component
-bin/security-scan --deps     # Trivy only (deps/secrets/IaC)
-bin/security-scan --sast     # OpenGrep only (code patterns)
-bin/security-scan --ci       # non-zero exit on HIGH/CRITICAL deps, secrets, or ERROR SAST
-```

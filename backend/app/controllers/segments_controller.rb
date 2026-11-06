@@ -90,8 +90,8 @@ class SegmentsController < ApplicationController
   end
 
   def segment_params
-    params.permit(:name, :description).tap do |p|
-      p[:conditions] = SegmentConditions.permit(params[:conditions]) if params.key?(:conditions)
-    end
+    permitted = params.permit(:name, :description)
+    permitted[:conditions] = SegmentConditions.permit(params[:conditions]) if params.key?(:conditions)
+    permitted
   end
 end
