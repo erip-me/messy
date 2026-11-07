@@ -1,10 +1,10 @@
 # Messy Backend - Multi-Channel Messaging Platform
 
-This is a Ruby on Rails 8.0 API-only application that serves as a sophisticated multi-channel messaging platform with webhook integration capabilities.
+This is a Ruby on Rails 8.1 API-only application that serves as a sophisticated multi-channel messaging platform with webhook integration capabilities.
 
 ## Technology Stack
 
-- **Framework**: Ruby on Rails 8.0.5 (API-only mode)
+- **Framework**: Ruby on Rails 8.1.4 (API-only mode)
 - **Database**: PostgreSQL with Active Record
 - **Background Jobs**: Solid Queue (database-backed, no Redis)
 - **Real-time**: ActionCable WebSocket support via Solid Cable (database-backed)

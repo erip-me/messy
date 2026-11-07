@@ -10,7 +10,7 @@ widget and social publishing. See [README.md](README.md) for the product overvie
 
 ```
 messy/
-├── backend/          # Rails 8.0 API (Ruby 3.3) — messages, campaigns, inbox, widget API, MCP server
+├── backend/          # Rails 8.1 API (Ruby 3.3) — messages, campaigns, inbox, widget API, MCP server
 │                     # (embeddable chat widget source: app/javascript/widget/)
 ├── frontend/         # React/TypeScript + Vite SPA (the dashboard)
 ├── deploy/           # Terraform for Kubernetes (modules/ + prod/ example environment)
