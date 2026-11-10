@@ -9,8 +9,9 @@ class CampaignDelivery < ApplicationRecord
   # after_commit, not after_save: two last deliveries finishing in parallel each saw
   # the other as still pending inside their open transactions, so neither completed
   # the campaign (campaign 6 sat in "sending" for months with every delivery sent).
-  after_commit :maybe_complete_campaign, if: :saved_change_to_status?
-  after_save :broadcast_delivery_update, if: :saved_change_to_status?
+  # One callback so the order is fixed: the broadcast's campaign_status must
+  # already say "sent" for the last delivery, or the page stays on "Sending".
+  after_commit :status_changed, if: :saved_change_to_status?
 
   def log_activity!(activity_type, extra_props = {})
     return unless customer_id && campaign.environment_id
@@ -29,6 +30,11 @@ class CampaignDelivery < ApplicationRecord
   end
 
   private
+
+  def status_changed
+    maybe_complete_campaign
+    broadcast_delivery_update
+  end
 
   def broadcast_delivery_update
     return unless campaign.status.in?(%w[sending sent])

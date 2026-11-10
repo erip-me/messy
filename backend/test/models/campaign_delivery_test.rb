@@ -28,6 +28,16 @@ class CampaignDeliveryTest < ActiveSupport::TestCase
     assert_equal "sent", campaign.reload.status
   end
 
+  test "the last delivery's broadcast tells the page the campaign is sent" do
+    campaign = campaigns(:sending_campaign)
+    statuses = []
+    ActionCable.server.stubs(:broadcast).with { |_ch, payload| statuses << payload[:campaign_status]; true }
+
+    campaign.campaign_deliveries.each { |d| d.update!(status: "sent", sent_at: Time.current) }
+
+    assert_equal "sent", statuses.last
+  end
+
   test "maybe_complete_campaign does not fire while pending deliveries exist" do
     campaign = campaigns(:sending_campaign)
     pending = campaign_deliveries(:pending_delivery)
