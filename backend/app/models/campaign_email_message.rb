@@ -10,6 +10,7 @@ class CampaignEmailMessage
   def tagged_subject = subject
   def cc = nil
   def bcc = nil
+  def reply_to = nil
   def attachments = []
   def inject_tracking_pixel = html
   # Campaign HTML is already link-rewritten + pixel-injected by SendCampaignDeliveryJob.

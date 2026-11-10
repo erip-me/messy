@@ -13,6 +13,21 @@ class SendCampaignDeliveryJobTest < ActiveJob::TestCase
     assert_not_nil delivery.sent_at
   end
 
+  # Every other test here mocks deliver!, so none of them sees whether the
+  # integration can actually read a CampaignEmailMessage (it couldn't: reply_to).
+  test "email campaign goes through the real SES deliver!" do
+    delivery = campaign_deliveries(:pending_delivery)
+    sent = nil
+    ses = Object.new
+    ses.define_singleton_method(:send_raw_email) { |params| sent = params; Struct.new(:message_id).new("ses-1") }
+    Aws::SES::Client.stubs(:new).returns(ses)
+
+    SendCampaignDeliveryJob.new.perform(delivery.id)
+
+    assert_equal "sent", delivery.reload.status, delivery.error_message
+    assert_includes sent[:raw_message][:data], "To: #{delivery.email}"
+  end
+
   test "uses the campaign's sending identity as the from address" do
     delivery = campaign_deliveries(:pending_delivery)
     identity = delivery.campaign.account.sending_identities.create!(from_name: "Peter", from_email: "peter@lalaaji.com")
