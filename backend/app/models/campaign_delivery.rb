@@ -6,7 +6,10 @@ class CampaignDelivery < ApplicationRecord
   STATUSES = %w[pending sent failed rejected].freeze
   validates :status, inclusion: { in: STATUSES }
 
-  after_save :maybe_complete_campaign, if: :saved_change_to_status?
+  # after_commit, not after_save: two last deliveries finishing in parallel each saw
+  # the other as still pending inside their open transactions, so neither completed
+  # the campaign (campaign 6 sat in "sending" for months with every delivery sent).
+  after_commit :maybe_complete_campaign, if: :saved_change_to_status?
   after_save :broadcast_delivery_update, if: :saved_change_to_status?
 
   def log_activity!(activity_type, extra_props = {})

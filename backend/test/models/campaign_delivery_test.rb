@@ -5,7 +5,7 @@ class CampaignDeliveryTest < ActiveSupport::TestCase
     campaign = campaigns(:sending_campaign)
     assert_equal "sending", campaign.status
 
-    # Mark all deliveries as sent via update! (triggers after_save)
+    # Mark all deliveries as sent via update! (triggers after_commit)
     campaign.campaign_deliveries.each do |d|
       d.update!(status: "sent", sent_at: Time.current)
     end
@@ -13,6 +13,19 @@ class CampaignDeliveryTest < ActiveSupport::TestCase
     campaign.reload
     assert_equal "sent", campaign.status
     assert_not_nil campaign.sent_at
+  end
+
+  # Parallel delivery jobs can't see each other's uncommitted rows, so the check
+  # only means something after commit. Inside the transaction it must not run.
+  test "maybe_complete_campaign waits for the delivery's transaction to commit" do
+    campaign = campaigns(:sending_campaign)
+
+    CampaignDelivery.transaction do
+      campaign.campaign_deliveries.each { |d| d.update!(status: "sent", sent_at: Time.current) }
+      assert_equal "sending", campaign.reload.status
+    end
+
+    assert_equal "sent", campaign.reload.status
   end
 
   test "maybe_complete_campaign does not fire while pending deliveries exist" do
