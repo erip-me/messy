@@ -62,7 +62,6 @@ import { LiveActivityPage } from './pages/live-activity';
 import { UsersIndexPage } from './pages/users/index';
 import { RulesIndexPage } from './pages/rules/index';
 import { RulesEditPage } from './pages/rules/edit';
-import { AdminAccountsPage } from './pages/admin/accounts';
 import { CustomersIndexPage } from './pages/customers/index';
 import { CustomerShowPage } from './pages/customers/show';
 import { SegmentsIndexPage } from './pages/segments/index';
@@ -87,9 +86,6 @@ import { OperatorProfilePage } from './pages/chat-settings/operator-profile';
 import { HelpdeskPage } from './pages/helpdesk/index';
 import { OperatorsPage } from './pages/operators/index';
 
-// Placeholder components for remaining pages
-const AdminUsersPage = () => <div className="p-6"><h1 className="text-2xl font-bold">Global Users</h1></div>;
-
 function ProtectedRoute() {
   const { isAuthenticated, account } = useSelector((state: RootState) => state.auth);
 
@@ -107,15 +103,6 @@ function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function SuperAdminRoute() {
-  const user = useSelector((state: RootState) => state.auth.user);
-  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
-
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!user?.is_super_admin) return <Navigate to="/" replace />;
-
-  return <Layout><Outlet /></Layout>;
-}
 
 function App() {
   return (
@@ -187,12 +174,6 @@ function App() {
             <Route path="/identities" element={<SendingIdentitiesPage />} />
             <Route path="/tools/email-finder" element={<EmailFinderPage />} />
             <Route path="/mcp" element={<McpIndexPage />} />
-          </Route>
-
-          {/* Super Admin routes */}
-          <Route element={<SuperAdminRoute />}>
-            <Route path="/admin/accounts" element={<AdminAccountsPage />} />
-            <Route path="/admin/users" element={<AdminUsersPage />} />
           </Route>
         </Routes>
         

@@ -116,13 +116,6 @@ class JsonShapeSnapshotsTest < ActionDispatch::IntegrationTest
     snap "social_posts.show", "/social_posts/#{post_record.id}"
   end
 
-  test "super admin endpoints" do
-    snap "super_admin.users.index", "/admin/users"
-    snap "super_admin.users.show", "/admin/users/#{users(:regular).id}"
-    snap "super_admin.accounts.index", "/admin/accounts"
-    snap "super_admin.accounts.show", "/admin/accounts/#{accounts(:acme).id}"
-  end
-
   private
 
   def snap(name, path)

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_11_02_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_12_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -1101,6 +1101,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_11_02_120000) do
     t.boolean "mcp_enabled", default: true, null: false
     t.index ["account_id"], name: "index_users_on_account_id"
     t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["last_login_at", "id"], name: "index_users_on_last_login_at_and_id", order: { last_login_at: "DESC NULLS LAST", id: :desc }
     t.index ["magic_link_token"], name: "index_users_on_magic_link_token"
   end
 

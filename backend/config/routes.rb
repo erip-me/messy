@@ -127,16 +127,20 @@ Rails.application.routes.draw do
     end
   end
 
-  # Super Admin routes
-  namespace :admin, module: :super_admin do
-    resources :accounts do
-      resources :users, only: [:index]
-    end
-    resources :users do
-      member do
-        post :toggle_super_admin
-      end
-    end
+  # Pushleft App admin (protocol 1): the operator back office, called by the
+  # Pushleft console with a signed token per request. Answers 404 unless
+  # PUSHLEFT_ADMIN_JWKS and PUSHLEFT_ADMIN_AUDIENCE are set. The catch-all keeps
+  # every path under the prefix behind the same check.
+  scope '/_pushleft/admin', controller: 'pushleft_admin', format: false do
+    get    'schema',        action: :schema
+    get    'overview',      action: :overview
+    get    ':resource',     action: :index
+    post   ':resource',     action: :create
+    get    ':resource/:id', action: :show
+    patch  ':resource/:id', action: :update
+    delete ':resource/:id', action: :destroy
+    post   ':resource/:id/actions/:action_name', action: :run_action
+    match  '(*path)', action: :not_found, via: :all
   end
 
   get 'dashboard/stats', to: 'dashboard#stats'
