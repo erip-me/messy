@@ -102,6 +102,17 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_not account.reload.logo.attached?
   end
 
+  test "logo checks the bytes, not the claimed content type" do
+    account = accounts(:acme)
+
+    patch "/accounts/#{account.id}/logo",
+      params: { logo: Rack::Test::UploadedFile.new(StringIO.new("<svg onload=alert(1)/>"), "image/png", original_filename: "x.png") },
+      headers: auth_headers(users(:admin))
+
+    assert_response :unprocessable_entity
+    assert_not account.reload.logo.attached?
+  end
+
   test "member cannot change the workspace logo" do
     account = accounts(:acme)
 

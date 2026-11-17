@@ -6,6 +6,20 @@ test:
   service: Disk
   root: <%= Rails.root.join("tmp/storage") %>
 
+# Any S3-compatible bucket (AWS, Pushleft, MinIO, R2). Pick it in production with
+# ACTIVE_STORAGE_SERVICE=s3; move existing files across with
+# `bin/rails storage:copy[local,s3]`. Own variable names so the bucket key never
+# collides with the AWS_* keys SES sends with. ENV[] not fetch: this file is
+# rendered at boot in every env, and the service is only built when used.
+s3:
+  service: S3
+  endpoint: <%= ENV["STORAGE_S3_ENDPOINT"] %>
+  region: <%= ENV.fetch("STORAGE_S3_REGION", "us-east-1") %>
+  bucket: <%= ENV["STORAGE_S3_BUCKET"] %>
+  access_key_id: <%= ENV["STORAGE_S3_ACCESS_KEY_ID"] %>
+  secret_access_key: <%= ENV["STORAGE_S3_SECRET_ACCESS_KEY"] %>
+  force_path_style: true
+
 # Use bin/rails credentials:edit to set the AWS secrets (as aws:access_key_id|secret_access_key)
 # amazon:
 #   service: S3

@@ -83,7 +83,9 @@ class AccountsController < ApplicationController
   # PATCH /accounts/:id/logo (multipart, field `logo`)
   def logo
     file = params.require(:logo)
-    unless file.respond_to?(:content_type) && Account::LOGO_TYPES.include?(file.content_type)
+    # Sniff the bytes: the client's Content-Type is just a label.
+    detected = file.respond_to?(:tempfile) && Marcel::MimeType.for(file.tempfile)
+    unless Account::LOGO_TYPES.include?(detected)
       return render json: { error: 'Logo must be a PNG, JPEG, WebP or GIF image' }, status: :unprocessable_entity
     end
     if file.size > Account::LOGO_MAX_BYTES

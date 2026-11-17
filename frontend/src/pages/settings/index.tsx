@@ -63,6 +63,7 @@ export function SettingsPage() {
     }
   };
 
+  const isAdmin = user?.role === "admin" || user?.is_super_admin === true;
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [logoBusy, setLogoBusy] = useState(false);
 
@@ -160,6 +161,7 @@ export function SettingsPage() {
                     className="h-12 w-12"
                   />
                 )}
+                {isAdmin && (<>
                 <input
                   ref={logoInputRef}
                   type="file"
@@ -171,15 +173,23 @@ export function SettingsPage() {
                   }}
                 />
                 <Button variant="outline" size="sm" disabled={logoBusy} onClick={() => logoInputRef.current?.click()}>
-                  <Upload className="h-3.5 w-3.5 mr-1" /> {account?.logo_url ? "Change" : "Upload"}
+                  {logoBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  {logoBusy ? "Saving…" : account?.logo_url ? "Change logo" : "Upload logo"}
                 </Button>
                 {account?.logo_url && (
                   <Button variant="ghost" size="sm" disabled={logoBusy} onClick={() => handleLogo(null)}>
-                    Remove
+                    Remove logo
                   </Button>
                 )}
+                </>)}
               </div>
-              <p className="text-xs text-muted-foreground">Square PNG, JPEG, WebP or GIF, up to 2 MB.</p>
+              {isAdmin && (
+                <p className="text-xs text-muted-foreground">PNG, JPEG, WebP or GIF, up to 2 MB. Shown cropped to a circle.</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="workspace-name">Name</Label>
