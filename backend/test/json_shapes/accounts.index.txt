@@ -1,6 +1,7 @@
 $.chat_enabled: Boolean
 $.created_at: String
 $.id: Integer
+$.logo_url: Null
 $.message_retention_days: Integer
 $.name: String
 $.next_ticket_number: Integer

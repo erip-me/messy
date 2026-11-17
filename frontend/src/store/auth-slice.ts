@@ -20,6 +20,7 @@ interface Account {
   payment_status?: string;
   tracking_domain?: string;
   message_retention_days?: number;
+  logo_url?: string | null;
 }
 
 interface AuthState {

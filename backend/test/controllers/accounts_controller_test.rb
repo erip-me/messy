@@ -70,4 +70,46 @@ class AccountsControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert_equal "Acme Corp", account.reload.name
   end
+
+  test "admin uploads a workspace logo and it shows in the switcher list" do
+    account = accounts(:acme)
+
+    patch "/accounts/#{account.id}/logo",
+      params: { logo: fixture_file_upload("logo.png", "image/png") },
+      headers: auth_headers(users(:admin))
+
+    assert_response :success
+    assert JSON.parse(response.body)["logo_url"].present?
+    assert account.reload.logo.attached?
+
+    get "/users/me", headers: auth_headers(users(:admin)), as: :json
+    row = JSON.parse(response.body)["workspaces"].find { |w| w["id"] == account.id }
+    assert row["avatar_url"].present?
+
+    delete "/accounts/#{account.id}/logo", headers: auth_headers(users(:admin))
+    assert_response :success
+    assert_nil JSON.parse(response.body)["logo_url"]
+  end
+
+  test "logo rejects non-raster uploads" do
+    account = accounts(:acme)
+
+    patch "/accounts/#{account.id}/logo",
+      params: { logo: Rack::Test::UploadedFile.new(StringIO.new("<svg/>"), "image/svg+xml", original_filename: "x.svg") },
+      headers: auth_headers(users(:admin))
+
+    assert_response :unprocessable_entity
+    assert_not account.reload.logo.attached?
+  end
+
+  test "member cannot change the workspace logo" do
+    account = accounts(:acme)
+
+    patch "/accounts/#{account.id}/logo",
+      params: { logo: fixture_file_upload("logo.png", "image/png") },
+      headers: auth_headers(users(:regular))
+
+    assert_response :forbidden
+    assert_not account.reload.logo.attached?
+  end
 end

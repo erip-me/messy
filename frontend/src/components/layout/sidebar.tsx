@@ -7,6 +7,7 @@ import nameLogo from '@/assets/nameLogo.png';
 import { setEnvironments, setActiveEnvironment, clearEnvironment } from '@/store/environment-slice';
 import { setWorkspaces, setPendingWorkspaces, setActiveWorkspace } from '@/store/workspace-slice';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -73,7 +74,7 @@ interface NavSection {
 // Workspace face for the switcher: the operator profile avatar where there is
 // one, otherwise initials on the same deterministic palette the tag chips use,
 // so each workspace keeps a stable colour instead of a wall of grey.
-function WorkspaceAvatar({ ws, className }: { ws: Workspace; className?: string }) {
+export function WorkspaceAvatar({ ws, className }: { ws: Workspace; className?: string }) {
   const [first, second] = ws.name.split(/\s+/);
   return (
     <Avatar className={cn('h-6 w-6 shrink-0', className)}>
@@ -258,6 +259,18 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
     : undefined;
 
   const justSelectedRef = useRef(false);
+  const switcherSearchRef = useRef<HTMLInputElement>(null);
+  const [switcherQuery, setSwitcherQuery] = useState('');
+  const q = switcherQuery.trim().toLowerCase();
+  // A workspace-name match keeps all its environments; otherwise only the
+  // matching environments show, under their workspace.
+  const switcherTree = workspaces
+    .map((ws) => {
+      const envs = environmentsFor(ws);
+      if (!q || ws.name.toLowerCase().includes(q)) return { ws, envs };
+      return { ws, envs: envs.filter((e) => e.name.toLowerCase().includes(q)) };
+    })
+    .filter(({ ws, envs }) => !q || envs.length > 0 || ws.name.toLowerCase().includes(q));
 
   // One click picks both. Setting the target environment up front (instead of
   // clearing and waiting for the refetch to auto-select the first one) is what
@@ -450,7 +463,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
             tree, so switching workspace *and* environment is a single click.
             Single-workspace users keep the plain environment select below. */}
         {workspaces.length > 1 ? (
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={(open) => { if (!open) setSwitcherQuery(''); }}>
             <DropdownMenuTrigger className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-card px-3 text-sm transition-colors hover:bg-accent">
               {activeWorkspace && <WorkspaceAvatar ws={activeWorkspace} />}
               <span className="mr-auto truncate">
@@ -471,9 +484,31 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                 if (justSelectedRef.current) e.preventDefault();
                 justSelectedRef.current = false;
               }}
+              onOpenAutoFocus={(e) => {
+                e.preventDefault();
+                switcherSearchRef.current?.focus();
+              }}
             >
-              {workspaces.map((ws) => {
-                const envs = environmentsFor(ws);
+              <div className="pb-2">
+                <Input
+                  ref={switcherSearchRef}
+                  aria-label="Search workspaces and environments"
+                  placeholder="Search…"
+                  value={switcherQuery}
+                  onChange={(e) => setSwitcherQuery(e.target.value)}
+                  // Keep Radix's menu typeahead from eating keystrokes; arrows
+                  // and Escape still reach the menu.
+                  onKeyDown={(e) => {
+                    if (!['ArrowDown', 'ArrowUp', 'Escape', 'Tab'].includes(e.key)) e.stopPropagation();
+                  }}
+                  className="h-8"
+                />
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+              {switcherTree.length === 0 && (
+                <p className="px-3 py-4 text-center text-sm text-muted-foreground">No matches</p>
+              )}
+              {switcherTree.map(({ ws, envs }) => {
                 return (
                   <div key={ws.id}>
                     <DropdownMenuItem
@@ -501,6 +536,7 @@ export function Sidebar({ onNavigate }: SidebarProps = {}) {
                   </div>
                 );
               })}
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (environments.length > 0 && (

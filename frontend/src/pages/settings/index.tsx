@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store";
 import { setCredentials } from "@/store/auth-slice";
-import { setWorkspaces } from "@/store/workspace-slice";
+import { setWorkspaces, Workspace } from "@/store/workspace-slice";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Upload } from "lucide-react";
+import { WorkspaceAvatar } from "@/components/layout/sidebar";
 import toast from "react-hot-toast";
 import request from "@/utils/request";
 
@@ -59,6 +60,35 @@ export function SettingsPage() {
       toast.error("Failed to save settings");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
+
+  // Upload or (file = null) remove the workspace logo, then mirror it into the
+  // switcher's list, which reads `avatar_url`.
+  const handleLogo = async (file: File | null) => {
+    setLogoBusy(true);
+    try {
+      let res;
+      if (file) {
+        const formData = new FormData();
+        formData.append("logo", file);
+        res = await request.patch(`/accounts/${account?.id}/logo`, formData);
+      } else {
+        res = await request.delete(`/accounts/${account?.id}/logo`);
+      }
+      dispatch(setCredentials({ user: user!, account: res.data, token: token! }));
+      dispatch(
+        setWorkspaces(workspaces.map((w) => (w.id === res.data.id ? { ...w, avatar_url: res.data.logo_url } : w)))
+      );
+      toast.success(file ? "Logo updated" : "Logo removed");
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to update logo");
+    } finally {
+      setLogoBusy(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
     }
   };
 
@@ -114,13 +144,43 @@ export function SettingsPage() {
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-base">Workspace Name</CardTitle>
+          <CardTitle className="text-base">Workspace</CardTitle>
           <CardDescription>
             How this workspace is named in the switcher and in emails we send about it.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Logo</Label>
+              <div className="flex items-center gap-4">
+                {account && (
+                  <WorkspaceAvatar
+                    ws={{ id: account.id, name: account.name, avatar_url: account.logo_url } as Workspace}
+                    className="h-12 w-12"
+                  />
+                )}
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleLogo(file);
+                  }}
+                />
+                <Button variant="outline" size="sm" disabled={logoBusy} onClick={() => logoInputRef.current?.click()}>
+                  <Upload className="h-3.5 w-3.5 mr-1" /> {account?.logo_url ? "Change" : "Upload"}
+                </Button>
+                {account?.logo_url && (
+                  <Button variant="ghost" size="sm" disabled={logoBusy} onClick={() => handleLogo(null)}>
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">Square PNG, JPEG, WebP or GIF, up to 2 MB.</p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="workspace-name">Name</Label>
               <Input

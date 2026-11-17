@@ -3,7 +3,7 @@ class AccountsController < ApplicationController
   # accept/decline act on a workspace the caller is NOT yet a member of, so they
   # can't resolve one the normal way — they find their own pending row instead.
   before_action :set_account, except: %i[create accept_invitation decline_invitation]
-  before_action :require_account_admin!, only: %i[update onboarding]
+  before_action :require_account_admin!, only: %i[update onboarding logo remove_logo]
 
   # GET /accounts
   def index
@@ -78,6 +78,26 @@ class AccountsController < ApplicationController
     else
       render json: @account.errors, status: :unprocessable_entity
     end
+  end
+
+  # PATCH /accounts/:id/logo (multipart, field `logo`)
+  def logo
+    file = params.require(:logo)
+    unless file.respond_to?(:content_type) && Account::LOGO_TYPES.include?(file.content_type)
+      return render json: { error: 'Logo must be a PNG, JPEG, WebP or GIF image' }, status: :unprocessable_entity
+    end
+    if file.size > Account::LOGO_MAX_BYTES
+      return render json: { error: 'Logo must be 2 MB or smaller' }, status: :unprocessable_entity
+    end
+
+    @account.logo.attach(file)
+    render json: AccountResource.new(@account).serialize
+  end
+
+  # DELETE /accounts/:id/logo
+  def remove_logo
+    @account.logo.purge_later
+    render json: AccountResource.new(@account.reload).serialize
   end
 
   # PATCH /accounts/:id/onboarding

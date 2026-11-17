@@ -34,6 +34,16 @@ class Account < ApplicationRecord
     PLANS.dig(plan, :name) || plan.to_s.titleize
   end
 
+  # The workspace's own logo, shown in the switcher. Raster only: an SVG blob
+  # served from our domain is a script vector.
+  LOGO_TYPES = %w[image/png image/jpeg image/webp image/gif].freeze
+  LOGO_MAX_BYTES = 2.megabytes
+  has_one_attached :logo
+
+  def logo_url
+    logo.attached? ? Rails.application.routes.url_helpers.rails_blob_url(logo) : nil
+  end
+
   # Destroy order matters: FK constraints require children before parents.
   # conversation_messages → conversations → {environments, customers, users}
   # campaign_deliveries → campaigns → {segments, templates, environments, customers}

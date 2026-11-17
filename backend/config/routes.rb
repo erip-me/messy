@@ -37,6 +37,8 @@ Rails.application.routes.draw do
       patch :onboarding
       post :accept_invitation
       delete :decline_invitation
+      patch :logo
+      delete :logo, action: :remove_logo
     end
   end
 

@@ -8,4 +8,6 @@ class AccountResource
              :onboarding_step, :onboarding_completed_at, :chat_enabled,
              :message_retention_days, :next_ticket_number, :tracking_domain,
              :created_at, :updated_at
+
+  attribute :logo_url, &:logo_url
 end
