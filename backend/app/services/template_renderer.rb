@@ -81,8 +81,8 @@ class TemplateRenderer
     @rendered_content ||= begin
       body = Liquid::Template.parse(template.body.to_s).render(variables)
 
-      # Transform markdown to HTML using layout transformers (skip for push — plain text only)
-      if template.body_format == "markdown" && template.channel != "push"
+      # Only email renders HTML. SMS, WhatsApp and push send the text as written.
+      if template.body_format == "markdown" && html?
         transformers = template.layout&.transformers || {}
         body = MarkdownTransformer.new(transformers).render(body)
       end
@@ -92,10 +92,12 @@ class TemplateRenderer
   end
 
   def rendered_body
-    return rendered_content unless template.layout.present? && template.channel != "push"
+    return rendered_content unless template.layout.present? && html?
 
     self.class.wrap_in_layout(template.layout, content: rendered_content, preview: rendered_preview, variables: variables)
   end
+
+  def html? = template.channel == "email"
 
   def rendered_preview
     @rendered_preview ||= template.preview.blank? ? "" : Liquid::Template.parse(template.preview).render(variables)

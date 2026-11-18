@@ -67,6 +67,17 @@ class TemplateRendererTest < ActiveSupport::TestCase
     assert_not_includes body, "<p"
   end
 
+  test "sms and whatsapp markdown bodies stay plain text" do
+    %w[sms whatsapp].each do |channel|
+      t = template(channel: channel, body_format: "markdown", layout: @layout,
+                   subject: nil, body: "{{code}} is your code.\n\nIt expires soon.")
+
+      body = TemplateRenderer.call(template: t, variables: { "code" => "123456" }).body
+
+      assert_equal "123456 is your code.\n\nIt expires soon.", body, channel
+    end
+  end
+
   test "exposes content before the layout alongside the wrapped body" do
     t = template(layout: @layout, body: "Hi {{first_name}}")
 
