@@ -1,6 +1,8 @@
 # Resolves publicly-fetchable URLs for a Social attachment, both for handing to
-# the Meta Graph API (which fetches the media by URL) and for the admin UI. Uses
-# Active Storage *proxy* URLs rather than redirect URLs: proxy responses are
+# the Meta Graph API (which fetches the media by URL) and for the admin UI.
+# Originals go through SocialMediaController (a proxy that keeps Content-Length,
+# so videos get byte ranges); variants use Active Storage's proxy. Proxy
+# rather than redirect URLs: proxy responses are
 # served with `Cache-Control: public, immutable`, so the browser and Cloudflare
 # cache them — a backend redeploy no longer blanks already-loaded images. URLs
 # resolve against default_url_options[:host].
@@ -12,7 +14,8 @@ module SocialMedia
   end
 
   def public_url(attachment)
-    Rails.application.routes.url_helpers.rails_storage_proxy_url(attachment)
+    blob = attachment.blob
+    Rails.application.routes.url_helpers.social_media_url(blob.signed_id, blob.filename.to_s)
   end
 
   # A small preview URL for calendar/list cells. Originals average ~0.7MB and a

@@ -221,6 +221,7 @@ Rails.application.routes.draw do
 
   # Socials content provisioning (environment API key auth).
   post 'socials/provision', to: 'socials/provisioning#create'
+  get  'social_media/:signed_id/*filename', to: 'social_media#show', as: :social_media, format: false
 
   get 'campaign_track/:token/open.png',      to: 'campaign_tracking#open', as: 'campaign_track_open'
   get 'campaign_track/:token/click',         to: 'campaign_tracking#click', as: 'campaign_track_click'
