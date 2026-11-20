@@ -104,4 +104,25 @@ class SegmentEvaluatorTest < ActiveSupport::TestCase
     assert_includes result_ids, customers(:john).id
     assert_not_includes result_ids, customers(:other_customer).id
   end
+
+  test "rolling day operators match custom timestamps against now" do
+    scope = accounts(:acme).customers
+    customers(:john).update!(custom_attributes: { "last_seen_at" => 200.days.ago.iso8601 })
+    customers(:jane).update!(custom_attributes: { "last_seen_at" => 10.days.ago.iso8601 })
+    run = ->(op, v) { SegmentEvaluator.new(scope, { "conditions" => [{ "attribute" => "custom.last_seen_at", "operator" => op, "value" => v }] }).evaluate.pluck(:id) }
+
+    assert_equal [customers(:john).id], run.("more_than_days_ago", "180")
+    assert_equal [customers(:jane).id], run.("less_than_days_ago", "180")
+    # A bad day count matches no one: dropping it would make the segment match everyone.
+    assert_empty run.("more_than_days_ago", "1; DROP TABLE customers")
+    assert_empty run.("more_than_days_ago", "")
+    assert_empty run.("more_than_days_ago", "-5")
+
+    # A non-date value on the same key is skipped, not a query-wide cast error.
+    customers(:jane).update!(custom_attributes: { "last_seen_at" => "never" })
+    assert_equal [customers(:john).id], run.("more_than_days_ago", "180")
+
+    # "on" compares the calendar date of an ISO timestamp.
+    assert_equal [customers(:john).id], run.("on", 200.days.ago.to_date.iso8601)
+  end
 end

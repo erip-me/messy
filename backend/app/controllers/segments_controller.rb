@@ -79,7 +79,8 @@ class SegmentsController < ApplicationController
     custom_keys = @account.customers
                     .pluck(Arel.sql("DISTINCT jsonb_object_keys(custom_attributes)"))
                     .sort
-    custom_attrs = custom_keys.map { |k| { key: "custom.#{k}", label: k, type: "string" } }
+    # ponytail: `_at` suffix marks a timestamp (signed_up_at, last_seen_at); sample values if keys get messier.
+    custom_attrs = custom_keys.map { |k| { key: "custom.#{k}", label: k, type: k.end_with?("_at") ? "date" : "string" } }
     render json: { attributes: system_attrs + custom_attrs }
   end
 

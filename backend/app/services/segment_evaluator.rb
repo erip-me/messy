@@ -47,11 +47,26 @@ class SegmentEvaluator
     when "not_contains" then "#{col} NOT ILIKE #{ActiveRecord::Base.connection.quote('%' + condition['value'].to_s + '%')}"
     when "greater_than" then "#{col} > #{val}"
     when "less_than"    then "#{col} < #{val}"
-    when "after"        then "#{col}::date > #{val}"
-    when "before"       then "#{col}::date < #{val}"
+    when "on"           then "#{date_expr(col)}::date = #{val}"
+    when "after"        then "#{date_expr(col)}::date > #{val}"
+    when "before"       then "#{date_expr(col)}::date < #{val}"
+    # Rolling windows: value is a day count, so the segment stays current as time passes.
+    # A bad count matches no one (FALSE), never everyone: dropping the condition would
+    # turn a one-condition segment into "all customers".
+    when "more_than_days_ago", "less_than_days_ago"
+      days = Integer(condition["value"].to_s, exception: false)
+      return "FALSE" if days.nil? || days.negative?
+      cmp = op == "more_than_days_ago" ? "<" : ">="
+      "#{date_expr(col)} #{cmp} NOW() - INTERVAL '#{days} days'"
     when "is_blank"     then "(#{col} IS NULL OR #{col} = '')"
     when "is_present"   then "(#{col} IS NOT NULL AND #{col} != '')"
     end
+  end
+
+  # Text that doesn't start with YYYY-MM-DD becomes NULL instead of failing the
+  # whole query on a cast error (custom attributes are free-form strings).
+  def date_expr(col)
+    "(CASE WHEN #{col}::text ~ '^\\d{4}-\\d{2}-\\d{2}' THEN #{col}::text::timestamptz END)"
   end
 
   def column_expr(attr)
@@ -63,7 +78,7 @@ class SegmentEvaluator
     when /\Acustom\./
       key = attr.sub("custom.", "")
       safe_key = key.gsub("'", "''")
-      "\"customers\".\"custom_attributes\"->>'#{safe_key}'"
+      "(\"customers\".\"custom_attributes\"->>'#{safe_key}')"
     end
   end
 end

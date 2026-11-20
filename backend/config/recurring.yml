@@ -30,6 +30,10 @@ production:
     class: CleanupAnonymousVisitorsJob
     schedule: at 3am every day
 
+  reconcile_rolling_segments:
+    class: ReconcileRollingSegmentsJob
+    schedule: at 4am every day
+
   poll_all_mailboxes:
     class: PollAllMailboxesJob
     schedule: every 2 minutes

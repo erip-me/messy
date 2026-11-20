@@ -1,6 +1,6 @@
 import request from '@/utils/request';
 
-export type ConditionOperator = 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'before' | 'after' | 'is_blank' | 'is_present';
+export type ConditionOperator = 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'on' | 'before' | 'after' | 'is_blank' | 'is_present' | 'more_than_days_ago' | 'less_than_days_ago';
 export type GroupOperator = 'and' | 'or';
 
 export interface LeafCondition {

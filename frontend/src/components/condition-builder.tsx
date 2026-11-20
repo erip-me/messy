@@ -22,9 +22,11 @@ const STRING_OPERATORS: { value: ConditionOperator; label: string }[] = [
 ];
 
 const DATE_OPERATORS: { value: ConditionOperator; label: string }[] = [
-  { value: 'equals', label: 'on' },
+  { value: 'on', label: 'on' },
   { value: 'before', label: 'before' },
   { value: 'after', label: 'after' },
+  { value: 'more_than_days_ago', label: 'more than N days ago' },
+  { value: 'less_than_days_ago', label: 'within the last N days' },
 ];
 
 const NO_VALUE_OPS: ConditionOperator[] = ['is_blank', 'is_present'];
@@ -122,7 +124,16 @@ function ConditionRow({
       </Select>
 
       {showValue && (
-        attr?.type === 'date' ? (
+        condition.operator.endsWith('_days_ago') ? (
+          <Input
+            type="number"
+            min={0}
+            className="w-24 h-8 text-sm"
+            placeholder="Days"
+            value={condition.value}
+            onChange={e => onChange({ ...condition, value: e.target.value })}
+          />
+        ) : attr?.type === 'date' ? (
           <Input
             type="date"
             className="w-40 h-8 text-sm"
