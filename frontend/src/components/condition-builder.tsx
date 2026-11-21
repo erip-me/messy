@@ -88,6 +88,8 @@ function ConditionRow({
 }) {
   const attr = attributes.find(a => a.key === condition.attribute);
   const ops = operatorsFor(attr?.type ?? 'string');
+  // Date conditions saved before 'on' existed used 'equals'; the backend reads both the same.
+  const operator = attr?.type === 'date' && condition.operator === 'equals' ? 'on' : condition.operator;
   const showValue = !NO_VALUE_OPS.includes(condition.operator);
 
   const handleAttrChange = (key: string) => {
@@ -110,7 +112,7 @@ function ConditionRow({
       </Select>
 
       <Select
-        value={condition.operator}
+        value={operator}
         onValueChange={v => onChange({ ...condition, operator: v as ConditionOperator, value: '' })}
       >
         <SelectTrigger className="w-44 h-8 text-sm">

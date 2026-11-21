@@ -20,5 +20,6 @@ class ReconcileRollingSegmentsJobTest < ActiveSupport::TestCase
     assert_enqueued_jobs 2, only: RecomputeSegmentMembershipsJob do
       ReconcileRollingSegmentsJob.perform_now
     end
+    assert_equal 1, segment.reload.customer_count
   end
 end

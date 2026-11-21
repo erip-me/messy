@@ -113,16 +113,53 @@ class SegmentEvaluatorTest < ActiveSupport::TestCase
 
     assert_equal [customers(:john).id], run.("more_than_days_ago", "180")
     assert_equal [customers(:jane).id], run.("less_than_days_ago", "180")
+    customers(:john).update!(custom_attributes: { "last_seen_at" => 5.days.from_now.iso8601 })
+    assert_equal [customers(:jane).id], run.("less_than_days_ago", "180"), "future dates are not within the last N days"
+    customers(:john).update!(custom_attributes: { "last_seen_at" => 200.days.ago.iso8601 })
     # A bad day count matches no one: dropping it would make the segment match everyone.
     assert_empty run.("more_than_days_ago", "1; DROP TABLE customers")
     assert_empty run.("more_than_days_ago", "")
     assert_empty run.("more_than_days_ago", "-5")
+    assert_empty run.("more_than_days_ago", "99999999999")
+    assert_empty run.("on", "")
+    assert_empty run.("before", "not-a-date")
+    assert_empty run.("after", "0000-01-01")
+    assert_empty run.("on", "-0001-01-01")
 
     # A non-date value on the same key is skipped, not a query-wide cast error.
     customers(:jane).update!(custom_attributes: { "last_seen_at" => "never" })
     assert_equal [customers(:john).id], run.("more_than_days_ago", "180")
 
-    # "on" compares the calendar date of an ISO timestamp.
+    # Dates that look right but don't exist are skipped too.
+    %w[2026-99-99 2026-02-30 0000-01-01 2026-01-01Tjunk 2026-01-01T10:00:00+99:00].each do |bad|
+      customers(:jane).update!(custom_attributes: { "last_seen_at" => bad })
+      assert_equal [customers(:john).id], run.("more_than_days_ago", "180"), bad
+    end
+
+    # "on" compares the calendar date of an ISO timestamp; legacy "equals" on a date reads the same.
+    assert_equal [customers(:john).id], run.("equals", 200.days.ago.to_date.iso8601)
+
+    # Calendar rules use the day as written, not one shifted into the database timezone.
+    customers(:jane).update!(custom_attributes: { "last_seen_at" => "2026-01-01T23:30:00-05:00" })
+    assert_equal [customers(:jane).id], run.("on", "2026-01-01")
     assert_equal [customers(:john).id], run.("on", 200.days.ago.to_date.iso8601)
+  end
+
+  test "nested groups are applied, not dropped" do
+    scope = accounts(:acme).customers
+    customers(:john).update!(custom_attributes: { "role" => "seller", "last_seen_at" => 200.days.ago.iso8601 })
+    customers(:jane).update!(custom_attributes: { "role" => "seller", "last_seen_at" => 10.days.ago.iso8601 })
+    conditions = {
+      "operator" => "and",
+      "conditions" => [
+        { "attribute" => "custom.role", "operator" => "equals", "value" => "seller" },
+        { "operator" => "or", "conditions" => [
+          { "attribute" => "custom.last_seen_at", "operator" => "more_than_days_ago", "value" => "180" },
+          { "attribute" => "custom.last_seen_at", "operator" => "is_blank", "value" => "" }
+        ] }
+      ]
+    }
+
+    assert_equal [customers(:john).id], SegmentEvaluator.new(scope, conditions).evaluate.pluck(:id)
   end
 end
