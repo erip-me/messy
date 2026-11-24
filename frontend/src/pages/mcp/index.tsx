@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plug, Copy, Check, RefreshCw, Users2, ScrollText } from "lucide-react";
+import { useSelector } from "react-redux";
+import { Plug, Copy, Check, RefreshCw, Users2, ScrollText, Info } from "lucide-react";
+import { RootState } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +38,34 @@ const LOG_STATUS_VARIANT: Record<McpLogStatus, "success" | "destructive" | "warn
   rejected: "warning",
 };
 
+// Every /mcp management endpoint is admin-only, so members get a notice instead
+// of controls that would only 403.
 export function McpIndexPage() {
+  // Gate on the active workspace's membership role, not auth.user.role, which
+  // lags a workspace switch. Keyed by id so a switch reloads the admin data.
+  const isSuperAdmin = useSelector((state: RootState) => state.auth.user?.is_super_admin === true);
+  const { workspaces, activeWorkspaceId } = useSelector((state: RootState) => state.workspace);
+  const active = workspaces.find((w) => w.id === activeWorkspaceId);
+  if (!isSuperAdmin && !active) return <PageSkeleton variant="table" rows={8} />;
+  if (isSuperAdmin || active?.role === "admin") return <McpAdminPage key={activeWorkspaceId ?? 0} />;
+
+  return (
+    <div className="p-6 max-w-5xl">
+      <div className="flex items-center gap-2 mb-6">
+        <Plug className="h-5 w-5 text-muted-foreground" />
+        <h1 className="text-2xl font-bold">MCP Server</h1>
+      </div>
+      <Card>
+        <CardContent className="flex items-start gap-3 py-6 text-sm text-muted-foreground">
+          <Info className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <span>The MCP server is managed by your workspace admins. Ask one of them to turn it on or give you access.</span>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function McpAdminPage() {
   const { confirm, ConfirmDialog } = useConfirm();
 
   const [loading, setLoading] = useState(true);
