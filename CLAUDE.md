@@ -54,7 +54,9 @@ This repo uses a tracked `.githooks/` directory. After cloning, enable it:
 git config core.hooksPath .githooks
 ```
 
-- **pre-push**: Runs all backend tests. Push is blocked if any test fails.
+- **pre-push**: runs `push-tests` (lanes in `.push-tests`): the tests of the changed
+  files only. A failed test stops the push. 30 s after the push it starts the full
+  suite on Pushleft.
 
 ### Backend
 ```bash
@@ -78,7 +80,14 @@ with rich data and fake provider credentials — useful for screenshots and UI w
 
 ## Testing
 
-Backend tests: `cd backend && bin/rails test`. The pre-push hook runs the suite.
+Backend tests: `cd backend && bin/rails test`.
+
+- Run the tests of the code you changed. `git push` runs `push-tests`.
+- The full suite runs on Pushleft: schedule `tests` (nightly, and after each push),
+  through `bin/ci-tests`. Check it from `~/Development/messy-deploy/pushleft` with
+  `pl --org empire schedules tests tests`.
+- Fix real failures from `pl --org empire schedules tests tests --prompt`. Leave flaky
+  tests alone unless the task is the flakiness.
 
 ### End-to-end: `bin/e2e`
 
@@ -106,7 +115,7 @@ In `backend/`, the test env points the `primary`, `queue`, and `cable` connectio
 not just `solid_queue_*`/`solid_cable_*`). `db:schema:load` loads all three in sequence,
 each `create_table ..., force: :cascade` dropping+recreating shared tables — so if they
 drift, a later load clobbers the primary's columns.
-- **Symptom:** tests pass in isolation but the full suite (and the pre-push hook) fail
+- **Symptom:** tests pass in isolation but the full suite (and the Pushleft run) fail
   with `column X does not exist` / `unknown attribute` / NOT NULL violations.
 - **Rule:** after ANY migration, run `bin/rails db:schema:dump` so all three regenerate
   together, and commit `schema.rb`, `queue_schema.rb`, and `cable_schema.rb` as a set.
