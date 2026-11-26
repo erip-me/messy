@@ -29,7 +29,7 @@ if [ $# -eq 0 ]; then
   junit=(-e JUNIT_DIR="$root/backend/reports/junit")
 else
   # No JUNIT_DIR: the reporter would empty reports/junit.
-  cmd='bin/rails test "$0" -n "$1"'
+  cmd='bin/rails test "$0" -i "$1"'
   junit=()
 fi
 
