@@ -3,6 +3,15 @@ require_relative "../config/environment"
 require "rails/test_help"
 require "mocha/minitest"
 
+# bin/ci-tests sets JUNIT_DIR: Pushleft reads the XML and reruns failed tests.
+if ENV["JUNIT_DIR"]
+  require "minitest/reporters"
+  Minitest::Reporters.use! [
+    Minitest::Reporters::DefaultReporter.new,
+    Minitest::Reporters::JUnitReporter.new(ENV["JUNIT_DIR"], true, base_path: Rails.root.to_s)
+  ]
+end
+
 module ActiveSupport
   class TestCase
     # Run tests sequentially to avoid PG connection issues

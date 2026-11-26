@@ -12,7 +12,8 @@ backend, frontend, website, docs.
 ## Ground rules
 
 - **Backend** (`backend/`): Rails 8 API. Changes need tests
-  (`bin/rails test`); the `pre-push` hook runs the full suite. After any
+  (`bin/rails test`); run the tests of the code you changed, and CI runs
+  the full suite on every push. After any
   migration, run `bin/rails db:schema:dump` and commit `schema.rb`,
   `queue_schema.rb`, and `cable_schema.rb` together; they must stay in sync.
 - **Frontend** (`frontend/`): React + Vite. Reuse the existing shadcn/ui

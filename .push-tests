@@ -1,0 +1,4 @@
+# push-tests lanes (~/Development/tools/push-tests). Paths are relative to the repo root.
+minitest backend
+# The full suite runs on Pushleft (schedule `tests`), from the deploy repo's manifest.
+after-push ../messy-deploy/pushleft empire tests

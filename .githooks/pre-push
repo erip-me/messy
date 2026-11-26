@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
-
-set -e
-
-echo "Running backend tests before push..."
-
-cd "$(git rev-parse --show-toplevel)/backend"
-
-bundle exec rails test
-
-echo "All tests passed. Pushing..."
+# Tests of the changed files, then the full suite on Pushleft (see .push-tests).
+# Without push-tests installed, GitHub CI runs the full suite after the push.
+command -v push-tests >/dev/null || exit 0
+exec push-tests

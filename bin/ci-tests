@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Backend test suite for the Pushleft test run (schedule `tests` in the deploy
+# repo's .pl.yaml). The runner VM has Docker but no Ruby, so Postgres and the
+# tests each run in a container.
+#
+#   bin/ci-tests                  full suite, JUnit XML in backend/reports/junit
+#   bin/ci-tests <file> <name>    one test (Pushleft's rerun of a failed test)
+#
+# Ruby comes from backend/.ruby-version. Gems go to backend/vendor/bundle, which
+# the schedule caches between runs. The Ruby image has no Node: SKIP_JS_BUILD keeps
+# test:prepare from building the chat widget, which no test reads.
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+ruby="ruby:$(cat "$root/backend/.ruby-version")"
+
+# Started once per VM; a rerun finds them already up.
+docker network inspect ci >/dev/null 2>&1 || docker network create ci >/dev/null
+if ! docker container inspect pg >/dev/null 2>&1; then
+  docker run -d --name pg --network ci -e POSTGRES_HOST_AUTH_METHOD=trust postgres:14 >/dev/null
+  until docker exec pg pg_isready -U postgres -q; do sleep 1; done
+fi
+
+# dotenv loads .env in the test env too; without EMAIL_FROM mailers have no from:.
+[ -f "$root/backend/.env" ] || cp "$root/backend/.env.example" "$root/backend/.env"
+
+if [ $# -eq 0 ]; then
+  cmd='bundle install --jobs 8 --retry 3 && bin/rails db:create db:schema:load && bin/rails test'
+  junit=(-e JUNIT_DIR="$root/backend/reports/junit")
+else
+  # No JUNIT_DIR: the reporter would empty reports/junit.
+  cmd='bin/rails test "$0" -n "$1"'
+  junit=()
+fi
+
+# Same path inside the container, so paths in the XML and logs match the checkout.
+exec docker run --rm --network ci \
+  -v "$root:$root" -w "$root/backend" \
+  -e RAILS_ENV=test -e DATABASE_HOST=pg -e BUNDLE_PATH=vendor/bundle -e SKIP_JS_BUILD=1 \
+  ${junit[@]+"${junit[@]}"} \
+  "$ruby" bash -c "$cmd" "$@"
