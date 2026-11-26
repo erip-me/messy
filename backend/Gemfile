@@ -74,3 +74,7 @@ group :production do
 end
 
 gem "alba", "~> 3.10"
+
+# Error reporting, on only when SENTRY_DSN is set (config/initializers/sentry.rb).
+gem "sentry-ruby", "~> 7.3"
+gem "sentry-rails", "~> 7.3"

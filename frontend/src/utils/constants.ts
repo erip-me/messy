@@ -15,11 +15,19 @@ const posthogHost =
 const turnstileSiteKey =
   window.__ENV__?.TURNSTILE_SITE_KEY || import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
 
+// Error reporting is off without a DSN (development, self-hosts without one).
+const sentryDsn = window.__ENV__?.SENTRY_DSN || import.meta.env.VITE_SENTRY_DSN || '';
+const sentryRelease = window.__ENV__?.SENTRY_RELEASE || undefined;
+const sentryEnvironment = window.__ENV__?.SENTRY_ENVIRONMENT || 'production';
+
 export const appSettings = {
   apiBaseUrl,
   posthogKey,
   posthogHost,
   turnstileSiteKey,
+  sentryDsn,
+  sentryRelease,
+  sentryEnvironment,
 };
 
 export const headerJson = {

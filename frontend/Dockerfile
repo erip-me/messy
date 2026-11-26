@@ -35,7 +35,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/vite.config.ts ./
 COPY --from=builder /app/env.sh ./
 # Seed .env with keys so env.sh can override from container env vars
-RUN printf 'MESSY_API_URL=\nCORS_DOMAIN=\nPOSTHOG_KEY=\nPOSTHOG_HOST=\nTURNSTILE_SITE_KEY=\n' > .env
+RUN printf 'MESSY_API_URL=\nCORS_DOMAIN=\nPOSTHOG_KEY=\nPOSTHOG_HOST=\nTURNSTILE_SITE_KEY=\nSENTRY_DSN=\nSENTRY_RELEASE=\nSENTRY_ENVIRONMENT=\n' > .env
 
 ENV NODE_ENV=production
 
