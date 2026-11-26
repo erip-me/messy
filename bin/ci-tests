@@ -9,6 +9,10 @@
 # Ruby comes from backend/.ruby-version. Gems go to backend/vendor/bundle, which
 # the schedule caches between runs. The Ruby image has no Node: SKIP_JS_BUILD keeps
 # test:prepare from building the chat widget, which no test reads.
+#
+# Pushleft judges the run from the JUnit files alone (a flaky-only run ends as
+# `flaky`, no mail). If this script ever does more than run tests, add a summary
+# file (report.summary) with one lane per step.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
