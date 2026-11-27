@@ -8,6 +8,8 @@ on:
     tags-ignore: ['**']
   pull_request:
 
+# messy-deploy's test:app waits for this workflow to pass on the VERSION commit
+# before it releases production.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -16,8 +18,8 @@ permissions:
   contents: read
 
 jobs:
-  backend-test:
-    name: Backend tests
+  test-backend:
+    name: test:backend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -72,8 +74,8 @@ jobs:
       - name: Run tests
         run: bin/rails test
 
-  frontend-check:
-    name: Frontend lint, build, unit tests
+  test-frontend:
+    name: test:frontend
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -116,8 +118,9 @@ jobs:
         continue-on-error: true
         run: yarn tsc -b
 
-  docker-build:
-    name: Docker build (${{ matrix.component }})
+  # Checks the plain Dockerfiles that release.yml publishes to ghcr on v* tags.
+  test-docker:
+    name: test:docker (${{ matrix.component }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
